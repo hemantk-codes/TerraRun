@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 
 const links = [
   { to: '/', label: 'Map', end: true },
+  { to: '/run', label: 'Start Run' },
   { to: '/leaderboard', label: 'Leaderboard' },
   { to: '/friends', label: 'Friends & Chat' },
   { to: '/profile', label: 'Profile' },

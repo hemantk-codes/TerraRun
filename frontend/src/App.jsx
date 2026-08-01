@@ -6,6 +6,7 @@ import Map from './pages/Map.jsx'
 import Profile from './pages/Profile.jsx'
 import Leaderboard from './pages/Leaderboard.jsx'
 import FriendsChat from './pages/FriendsChat.jsx'
+import StartRun from './pages/StartRun.jsx'
 
 function NotFound() {
   return (
@@ -24,6 +25,14 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Map />} />
           <Route path="/login" element={<LoginSignup />} />
+          <Route
+            path="/run"
+            element={
+              <ProtectedRoute>
+                <StartRun />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/profile"
             element={

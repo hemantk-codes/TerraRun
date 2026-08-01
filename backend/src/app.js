@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import healthRouter from './routes/health.js';
 import authRouter from './routes/auth.js';
 import profileRouter from './routes/profile.js';
+import activitiesRouter from './routes/activities.js';
 
 export function createApp() {
   const app = express();
@@ -23,6 +24,7 @@ export function createApp() {
   app.use('/api/health', healthRouter);
   app.use('/api/auth', authRouter); // Phase 1
   app.use('/api/profile', profileRouter); // Phase 1
+  app.use('/api/activities', activitiesRouter);
 
   // Routers added in later phases mount here, e.g.:
   // app.use('/api/activities', activitiesRouter); // Phase 2

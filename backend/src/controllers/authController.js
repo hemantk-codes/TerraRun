@@ -76,7 +76,11 @@ export async function signupEmail(req, res, next) {
 
     console.log("Generated hash:", passwordHash);
 
-    const user = await User.create({ name: name.trim(), email: normalizedEmail, passwordHash });
+    const user = await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      passwordHash,
+    });
 
     const accessToken = issueSession(user, res);
     res.status(201).json({ user: sanitizeUser(user), accessToken });
@@ -93,7 +97,8 @@ export async function loginEmail(req, res, next) {
     }
 
     // passwordHash has `select: false` on the schema — opt back in here only.
-    const user = await User.findOne({ email: email.trim().toLowerCase() }).select('+passwordHash');
+    const user = await User.findOne({ email: email.trim().toLowerCase() })
+      .select('+passwordHash +refreshTokenVersion');
 
     console.log("===== LOGIN DEBUG =====");
     console.log("Email:", email);
@@ -138,7 +143,7 @@ export async function phoneAuth(req, res, next) {
     const phone = decoded.phone_number;
     if (!phone) throw new ApiError(400, 'That verification token has no phone number attached.');
 
-    let user = await User.findOne({ phone });
+    let user = await User.findOne({ phone }).select('+refreshTokenVersion');
     let isNewUser = false;
 
     if (!user) {
