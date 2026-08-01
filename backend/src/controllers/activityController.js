@@ -1,6 +1,7 @@
 import Activity from '../models/Activity.js';
 import User from '../models/User.js';
 import { computeActivityMetrics, MIN_DISTANCE_KM_FOR_TERRITORY } from '../utils/calorieEngine.js';
+import { generateTerritory } from '../utils/territoryEngine.js';
 
 /**
  * POST /api/activities
@@ -75,16 +76,43 @@ export async function createActivity(req, res, next) {
       territoryId: null,
     });
 
-    // TODO(Phase 3): if (isValidForTerritory) { await generateTerritory(activity, user); }
-    //   and set activity.territoryId to the result. Left as a hook per the
-    //   Phase 2 spec ("skip territory generation entirely... just leave the
-    //   hook/TODO").
+    // --- PHASE 3: territory generation ---
+    // Fills in the TODO left by Phase 2. Deliberately NOT wrapped around the
+    // Activity.create above — the activity (and the user's run stats) is
+    // saved either way; territory generation is a second, best-effort step
+    // on top of it. If it throws (a genuine geometry edge case — e.g. a
+    // degenerate near-zero-area loop), we log it and return the activity
+    // with territoryId left null rather than losing the user's recorded run
+    // over it. Phase 6+ (invasion) simply never sees this activity as a
+    // territory source, which is the safe failure mode.
+    let territory = null;
+    if (isValidForTerritory) {
+      try {
+        territory = await generateTerritory(activity, user);
+        activity.territoryId = territory._id;
+        await activity.save();
+      } catch (err) {
+        console.error(
+          `[territoryEngine] Failed to generate territory for activity ${activity._id.toString()}:`,
+          err
+        );
+      }
+    }
+
     // TODO(Phase 8): update user.lastRunDate / user.lastRunCalories /
     //   currentStreak here once the streak/decay engine exists. Not touched
-    //   in Phase 2 so this route doesn't silently diverge from what Phase 8
-    //   expects to own.
+    //   in Phase 2/3 so this route doesn't silently diverge from what
+    //   Phase 8 expects to own.
+    // TODO(Phase 5): award Calons for the territory created above
+    //   (calonsEarned = territory.areaSqm * POINTS_PER_SQM) once the Calons
+    //   engine exists. Left as a hook, same pattern as the Phase 3 TODO
+    //   Phase 2 left for this file.
+    // TODO(Phase 6): check the new territory against existing enemy
+    //   territories for overlap (invasion) before/after saving it here —
+    //   Phase 3 explicitly creates territory in isolation, no overlap
+    //   handling yet.
 
-    res.status(201).json({ activity });
+    res.status(201).json({ activity, territory });
   } catch (err) {
     next(err);
   }
