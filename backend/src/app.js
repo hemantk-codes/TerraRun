@@ -7,6 +7,8 @@ import healthRouter from './routes/health.js';
 import authRouter from './routes/auth.js';
 import profileRouter from './routes/profile.js';
 import activitiesRouter from './routes/activities.js';
+import territoriesRouter from './routes/territories.js'; // Phase 4
+import leaderboardRouter from './routes/leaderboard.js'; // Phase 5
 
 export function createApp() {
   const app = express();
@@ -24,12 +26,11 @@ export function createApp() {
   app.use('/api/health', healthRouter);
   app.use('/api/auth', authRouter); // Phase 1
   app.use('/api/profile', profileRouter); // Phase 1
-  app.use('/api/activities', activitiesRouter);
+  app.use('/api/activities', activitiesRouter); // Phase 2
+  app.use('/api/territories', territoriesRouter); // Phase 4 — GET /nearby only for now
+  app.use('/api/leaderboard', leaderboardRouter); // Phase 5
 
   // Routers added in later phases mount here, e.g.:
-  // app.use('/api/activities', activitiesRouter); // Phase 2
-  // app.use('/api/territories', territoriesRouter); // Phase 3/4
-  // app.use('/api/leaderboard', leaderboardRouter); // Phase 5
   // app.use('/api/friends', friendsRouter);       // Phase 9
   // app.use('/api/notifications', notificationsRouter); // Phase 10
 

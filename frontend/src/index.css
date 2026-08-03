@@ -59,3 +59,48 @@ body {
     @apply rounded-md border border-invasion-500/40 bg-invasion-500/10 px-3 py-2 text-sm text-invasion-500;
   }
 }
+
+/*
+  PHASE 4 — Leaflet popup theming.
+  Leaflet's default popup is a plain white box, which clashes hard with the
+  app's dark "night satellite" palette. These overrides retarget Leaflet's
+  own classes (not @layer, since Leaflet renders these into the DOM outside
+  React's render tree — Tailwind's utility classes still apply globally, but
+  Leaflet's structural wrapper classes need direct overrides) to reuse the
+  same ground-* tokens as the rest of the app.
+*/
+.leaflet-popup-content-wrapper {
+  background-color: var(--color-ground-900);
+  color: var(--color-ground-100);
+  border: 1px solid var(--color-ground-700);
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.4);
+}
+.leaflet-popup-tip {
+  background-color: var(--color-ground-900);
+}
+.leaflet-popup-content {
+  margin: 0.75rem 1rem;
+  min-width: 160px;
+}
+.leaflet-popup-close-button {
+  color: var(--color-ground-300) !important;
+}
+.terrarun-popup-owner {
+  font-weight: 600;
+  color: var(--color-ground-100);
+  margin: 0 0 0.15rem;
+}
+.terrarun-popup-meta {
+  color: var(--color-ground-300);
+  font-size: 0.8125rem;
+  margin: 0 0 0.15rem;
+}
+.terrarun-popup-est {
+  color: var(--color-ground-500);
+}
+.terrarun-popup-held {
+  color: var(--color-ground-500);
+  font-size: 0.75rem;
+  margin: 0.25rem 0 0;
+}

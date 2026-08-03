@@ -2,6 +2,7 @@ import Activity from '../models/Activity.js';
 import User from '../models/User.js';
 import { computeActivityMetrics, MIN_DISTANCE_KM_FOR_TERRITORY } from '../utils/calorieEngine.js';
 import { generateTerritory } from '../utils/territoryEngine.js';
+import { awardCalonsForAreaGain } from '../utils/calonsEngine.js'; // Phase 5
 
 /**
  * POST /api/activities
@@ -77,20 +78,27 @@ export async function createActivity(req, res, next) {
     });
 
     // --- PHASE 3: territory generation ---
-    // Fills in the TODO left by Phase 2. Deliberately NOT wrapped around the
-    // Activity.create above — the activity (and the user's run stats) is
-    // saved either way; territory generation is a second, best-effort step
-    // on top of it. If it throws (a genuine geometry edge case — e.g. a
-    // degenerate near-zero-area loop), we log it and return the activity
-    // with territoryId left null rather than losing the user's recorded run
-    // over it. Phase 6+ (invasion) simply never sees this activity as a
-    // territory source, which is the safe failure mode.
+    // Deliberately NOT wrapped around the Activity.create above — the
+    // activity (and the user's run stats) is saved either way; territory
+    // generation is a second, best-effort step on top of it. If it throws
+    // (a genuine geometry edge case — e.g. a degenerate near-zero-area
+    // loop), we log it and return the activity with territoryId left null
+    // rather than losing the user's recorded run over it.
     let territory = null;
+    let calonsEarned = 0;
     if (isValidForTerritory) {
       try {
         territory = await generateTerritory(activity, user);
         activity.territoryId = territory._id;
         await activity.save();
+
+        // --- PHASE 5: award Calons for the newly created territory ---
+        // The whole territory is "new" area at creation time (no prior
+        // ownership to subtract), so the full areaSqm is the gain. Phase
+        // 6/7 invasion code should call awardCalonsForAreaGain the same
+        // way with just the OVERLAP area, not the invader's whole
+        // territory, when it lands.
+        calonsEarned = await awardCalonsForAreaGain(user._id, territory.areaSqm);
       } catch (err) {
         console.error(
           `[territoryEngine] Failed to generate territory for activity ${activity._id.toString()}:`,
@@ -103,16 +111,15 @@ export async function createActivity(req, res, next) {
     //   currentStreak here once the streak/decay engine exists. Not touched
     //   in Phase 2/3 so this route doesn't silently diverge from what
     //   Phase 8 expects to own.
-    // TODO(Phase 5): award Calons for the territory created above
-    //   (calonsEarned = territory.areaSqm * POINTS_PER_SQM) once the Calons
-    //   engine exists. Left as a hook, same pattern as the Phase 3 TODO
-    //   Phase 2 left for this file.
     // TODO(Phase 6): check the new territory against existing enemy
     //   territories for overlap (invasion) before/after saving it here —
     //   Phase 3 explicitly creates territory in isolation, no overlap
-    //   handling yet.
+    //   handling yet. Once that lands, the calonsEarned line above should
+    //   move to only cover the invader's NET new area, with the defender's
+    //   side handled separately (spec doesn't dock the loser's Calons,
+    //   calonsTotal is monotonic for everyone).
 
-    res.status(201).json({ activity, territory });
+    res.status(201).json({ activity, territory, calonsEarned });
   } catch (err) {
     next(err);
   }
