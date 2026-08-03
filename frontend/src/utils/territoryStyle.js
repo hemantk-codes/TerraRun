@@ -1,30 +1,29 @@
 /**
  * PHASE 3, point 6 — territory color rendering.
+ * PHASE 4 FOLLOW-UP — bumped fill opacity + outline weight after the first
+ * live test showed territories were nearly invisible against light OSM
+ * tiles (0.18 fill opacity + a light basemap = washed out). Paired with the
+ * dark CARTO basemap swap in Map.jsx, this should read clearly now.
  *
- * This is deliberately just a pure styling helper, not a Leaflet component:
- * `leaflet`/`react-leaflet` aren't installed yet (Map.jsx is still the
- * Phase 3–4 placeholder, and Leaflet setup is explicitly Phase 4's job —
- * "Global Map & Territory Visibility"). Adding the actual map now would
- * mean half-building Phase 4 without its viewport-query/fetch logic, so
- * this file exists purely so Phase 4 has a ready-made, already-agreed-on
- * styling convention to import instead of inventing one from scratch.
- *
- * Usage once Leaflet lands (react-leaflet's <Polygon> and <GeoJSON> both
- * accept a `pathOptions`/`style` prop shaped exactly like this):
+ * This is deliberately just a pure styling helper, not a Leaflet component —
+ * see Map.jsx / react-leaflet's <GeoJSON style={...}> for usage:
  *
  *   import { getTerritoryStyle } from '../utils/territoryStyle.js'
- *   <Polygon positions={...} pathOptions={getTerritoryStyle(territory.color)} />
+ *   <GeoJSON data={...} style={(feature) => getTerritoryStyle(feature.properties.color)} />
  *
  * or with plain Leaflet:
  *   L.geoJSON(territory.geometry, { style: () => getTerritoryStyle(territory.color) })
  */
 
-// Fill opacity for the tinted interior — spec says 15-20% so it "reads as a
-// tinted region, not a solid block". Kept as a named constant so Phase 4
-// (or later playtesting) can tune it in one place.
-export const TERRITORY_FILL_OPACITY = 0.18;
+// Fill opacity for the tinted interior. Original spec said 15-20% ("reads
+// as a tinted region, not a solid block") — that held up fine on a dark
+// basemap in isolation, but combined with thin, small polygons on light
+// OSM tiles it was too subtle to spot at a glance. Bumped to make
+// territories readable at normal map zoom without going full opaque/block.
+// Tune freely — this is the one knob to turn if it's ever too strong/weak.
+export const TERRITORY_FILL_OPACITY = 0.4;
 export const TERRITORY_OUTLINE_OPACITY = 1;
-export const TERRITORY_OUTLINE_WEIGHT = 2;
+export const TERRITORY_OUTLINE_WEIGHT = 3; // was 2
 
 /**
  * @param {string} color - the owner's preferredColor hex string (e.g. "#3B82F6")
