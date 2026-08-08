@@ -242,13 +242,21 @@ export function generateTerritoryGeometry(activity) {
  * activity.
  *
  * Overlap with other users' existing territories is intentionally NOT
- * handled here — that's Phase 6 (invasion engine). This just creates the
- * territory in isolation, exactly as the Phase 3 spec asks.
+ * handled here — that's Phase 6 (invasion engine), via the onBeforeSave
+ * hook below. This function itself still has zero invasion-specific
+ * knowledge; it just gives a caller the chance to inspect/annotate the
+ * constructed-but-unsaved document before the one save call happens.
+ *
+ * PHASE 6 CHANGE: building via `new Territory(...)` + `.save()` instead of
+ * the old one-shot `Territory.create(...)` is the only structural change
+ * here — needed so there's a document to hand to `onBeforeSave` before it
+ * hits the DB. Called with no options, this function behaves exactly as it
+ * did before Phase 6.
  */
-export async function generateTerritory(activity, user) {
+export async function generateTerritory(activity, user, { onBeforeSave } = {}) {
   const { geometry, areaSqm, shapeType } = generateTerritoryGeometry(activity);
 
-  return Territory.create({
+  const territory = new Territory({
     ownerId: user._id,
     geometry,
     color: user.preferredColor,
@@ -259,4 +267,11 @@ export async function generateTerritory(activity, user) {
     strength: areaSqm,
     // siegeDamage / lastReinforcedAt / decayState all use schema defaults.
   });
+
+  if (typeof onBeforeSave === 'function') {
+    await onBeforeSave(territory, user);
+  }
+
+  await territory.save();
+  return territory;
 }
