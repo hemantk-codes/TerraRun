@@ -1,4 +1,11 @@
 // PHASE 3 — Territory Generation Engine
+// PHASE 7 UPDATE — generateRandomTerritory's ring-building/rescale logic is
+// now factored out into the exported generateOrganicPolygonAroundCenter()
+// so utils/splitEngine.js's "regenerate" flow can build the same organic
+// shape around an arbitrary reference point (a territory's centroid, offset
+// north/south) instead of only ever around a GPS path's centroid. No
+// behavior change for the existing Phase 3 callers — generateRandomTerritory
+// still does exactly what it did before, just via the extracted helper.
 //
 // Pure geometry functions (generateTerritoryGeometry and its three shape
 // helpers) take a plain activity-shaped object and return a GeoJSON
@@ -139,9 +146,14 @@ function generateLineTerritory(gpsPath, targetAreaSqm, distanceKm) {
 }
 
 // --- Step 4: RANDOM CASE ---
-function generateRandomTerritory(gpsPath, targetAreaSqm) {
-  const coords = toLngLatCoords(gpsPath);
-  const centroid = turf.centroid(turf.lineString(coords));
+//
+// PHASE 7: extracted from the old generateRandomTerritory(gpsPath, ...) so
+// it can be driven by an arbitrary center point instead of only a GPS
+// path's centroid. `centerLngLat` is a plain [lng, lat] pair (matches
+// turf's coordinate order, NOT the GpsPoint {lat,lng} shape used
+// elsewhere in this codebase — callers must convert).
+export function generateOrganicPolygonAroundCenter(centerLngLat, targetAreaSqm) {
+  const centroid = turf.point(centerLngLat);
 
   // 4b — pick the organic bump pattern ONCE (fixed angle count + per-point
   // radius ratios); the rescale loop below (4c) resizes this same shape
@@ -193,6 +205,12 @@ function generateRandomTerritory(gpsPath, targetAreaSqm) {
     areaSqm,
     shapeType: 'random',
   };
+}
+
+function generateRandomTerritory(gpsPath, targetAreaSqm) {
+  const coords = toLngLatCoords(gpsPath);
+  const centroid = turf.centroid(turf.lineString(coords));
+  return generateOrganicPolygonAroundCenter(centroid.geometry.coordinates, targetAreaSqm);
 }
 
 /**

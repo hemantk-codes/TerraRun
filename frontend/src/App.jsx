@@ -7,6 +7,8 @@ import Profile from './pages/Profile.jsx'
 import Leaderboard from './pages/Leaderboard.jsx'
 import FriendsChat from './pages/FriendsChat.jsx'
 import StartRun from './pages/StartRun.jsx'
+import TerritorySplitModal from './components/TerritorySplitModal.jsx' // Phase 7
+import { usePendingTerritorySplits } from './hooks/usePendingTerritorySplits.js' // Phase 7
 
 function NotFound() {
   return (
@@ -18,6 +20,11 @@ function NotFound() {
 }
 
 export default function App() {
+  // Phase 7 — checked once per app session, independent of route, so the
+  // modal can surface "on next login/page-load" per the phase prompt
+  // regardless of which page the user happens to land on first.
+  const { pendingSplits, dismiss } = usePendingTerritorySplits()
+
   return (
     <div className="min-h-screen bg-ground-950">
       <NavBar />
@@ -46,6 +53,10 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
+
+      {pendingSplits.length > 0 && (
+        <TerritorySplitModal pendingSplits={pendingSplits} onResolved={dismiss} />
+      )}
     </div>
   )
 }

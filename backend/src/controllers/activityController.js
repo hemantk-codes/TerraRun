@@ -4,6 +4,7 @@ import { computeActivityMetrics, MIN_DISTANCE_KM_FOR_TERRITORY } from '../utils/
 import { generateTerritory } from '../utils/territoryEngine.js';
 import { awardCalonsForAreaGain } from '../utils/calonsEngine.js'; // Phase 5
 import { resolveInvasions } from '../utils/invasionEngine.js'; // Phase 6
+import { resolveSplits } from '../utils/splitEngine.js'; // Phase 7
 
 /**
  * POST /api/activities
@@ -119,6 +120,27 @@ export async function createActivity(req, res, next) {
       } catch (err) {
         console.error(
           `[territoryEngine] Failed to generate territory for activity ${activity._id.toString()}:`,
+          err
+        );
+      }
+    }
+
+    // --- PHASE 7: split detection ---
+    // Independent of the territory-generation block above, and deliberately
+    // NOT nested inside its try/catch — this checks the invader's RAW PATH
+    // against every OTHER user's territories, not anything derived from the
+    // invader's own new territory, so a failure/edge-case in one shouldn't
+    // gate the other. Only runs for non-loop activities (Phase 6 already
+    // owns the loop case) that meet the same isValidForTerritory bar as
+    // everything else here (see splitEngine.js's DESIGN DECISIONS #1 for
+    // why that bar applies here too, even though the phase prompt's literal
+    // text doesn't mention it).
+    if (!metrics.isLoop && isValidForTerritory) {
+      try {
+        await resolveSplits(activity, user);
+      } catch (err) {
+        console.error(
+          `[splitEngine] Failed to resolve splits for activity ${activity._id.toString()}:`,
           err
         );
       }
