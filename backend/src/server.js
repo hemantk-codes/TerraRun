@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { createApp } from './app.js';
 import { connectDB } from './config/db.js';
 import { registerCalonsResetJobs } from './jobs/calonsResetJobs.js'; // Phase 5
+import { registerDecayJobs } from './jobs/decayJobs.js'; // Phase 8
 
 // Importing this confirms all schemas compile and register with Mongoose
 // with zero errors — part of the Phase 0 definition of done.
@@ -12,9 +13,10 @@ const PORT = process.env.PORT || 5000;
 async function start() {
   await connectDB();
 
-  // Cron jobs touch the DB (User/WeeklyScore/MonthlyScore), so register
-  // them only after connectDB() resolves.
+  // Cron jobs touch the DB (User/Territory/Activity/Notification/etc.), so
+  // register them only after connectDB() resolves.
   registerCalonsResetJobs();
+  registerDecayJobs();
 
   const app = createApp();
 

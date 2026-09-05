@@ -22,9 +22,43 @@ const GeoJsonSchema = new Schema(
 
 const DecayStateSchema = new Schema(
   {
+    // PHASE 8: also doubles as the streak-stopper "freeze" marker — see
+    // utils/decayEngine.js. Normally startedAt is <= "now" (decay is live);
+    // a streak-stopper use pushes it INTO THE FUTURE, and the decay cron
+    // treats "startedAt > now" as "this territory is currently frozen,
+    // skip it" rather than adding a separate freeze field.
     startedAt: { type: Date, default: null },
     dailyShrinkRate: { type: Number, default: null }, // sqm/day, see Phase 8
     daysToZero: { type: Number, default: null },
+  },
+  { _id: false }
+);
+
+// PHASE 8 — only populated for shapeType === 'line'. Territory.geometry only
+// stores the FINAL buffered ribbon polygon; that's enough to render and to
+// do radial-buffer decay (loop/random), but the Phase 8 spec's line-decay
+// algorithm needs to shorten/extend the underlying centerline itself
+// ("shortening the source line by X meters from that end, then re-buffer"),
+// which isn't recoverable from the buffered polygon alone. So the source
+// line + the half-width used to buffer it are captured once at creation
+// time (territoryEngine.js) and kept in sync by the decay engine every time
+// it trims/extends the ribbon.
+//
+// Territories created before Phase 8 (or any line territory that's since
+// been sliced/invaded by Phase 6/7 in a way that invalidates this) simply
+// won't have this field — utils/decayEngine.js falls back to treating the
+// territory via the radial-buffer method in that case rather than trusting
+// stale line data. See that file's header for the specific fallback logic.
+const LineMetaSchema = new Schema(
+  {
+    sourceLine: {
+      type: {
+        type: String,
+        enum: ['LineString'],
+      },
+      coordinates: { type: Schema.Types.Mixed }, // [[lng,lat], ...]
+    },
+    bufferWidthMeters: { type: Number, min: 0 },
   },
   { _id: false }
 );
@@ -97,6 +131,13 @@ const TerritorySchema = new Schema(
     decayState: {
       type: DecayStateSchema,
       default: () => ({}),
+    },
+
+    // PHASE 8 — see LineMetaSchema above. Null for loop/random territories,
+    // and for any line territory created before this field existed.
+    lineMeta: {
+      type: LineMetaSchema,
+      default: null,
     },
 
     // Phase 7 — see PendingSplitSchema above. Null whenever there's nothing

@@ -6,6 +6,16 @@
 // north/south) instead of only ever around a GPS path's centroid. No
 // behavior change for the existing Phase 3 callers — generateRandomTerritory
 // still does exactly what it did before, just via the extracted helper.
+// PHASE 8 UPDATE — generateLineTerritory now also returns a `lineMeta`
+// field ({ sourceLine, bufferWidthMeters }), and generateTerritory() attaches
+// it to the saved Territory document when present. This is new information,
+// not a behavior change to the geometry itself: the buffered ribbon polygon
+// generated here is byte-for-byte the same as before. utils/decayEngine.js
+// (Phase 8) is the only consumer — it needs the actual centerline + buffer
+// width to trim/extend a ribbon during decay/growth, which isn't
+// recoverable from the final buffered polygon alone. See Territory.js's
+// LineMetaSchema comment for the fallback behavior on territories that
+// don't have this field.
 //
 // Pure geometry functions (generateTerritoryGeometry and its three shape
 // helpers) take a plain activity-shaped object and return a GeoJSON
@@ -142,6 +152,15 @@ function generateLineTerritory(gpsPath, targetAreaSqm, distanceKm) {
     geometry: buffered.geometry,
     areaSqm: turf.area(buffered),
     shapeType: 'line',
+    // PHASE 8 — stashed so utils/decayEngine.js can later trim/extend this
+    // exact centerline (and re-buffer at this exact width) instead of
+    // approximating a ribbon shrink/growth via the radial-buffer method
+    // used for loop/random. coords[0] is the path's start, matching the
+    // decay engine's "trim from the end farthest from the start" rule.
+    lineMeta: {
+      sourceLine: line.geometry,
+      bufferWidthMeters: width,
+    },
   };
 }
 
@@ -216,9 +235,10 @@ function generateRandomTerritory(gpsPath, targetAreaSqm) {
 /**
  * Pure function: given an activity-shaped object
  * ({ gpsPath, calories, isLoop, distanceKm }), returns
- * { geometry, areaSqm, shapeType } — no DB access. Takes a plain object
- * (or a Mongoose Activity document, whose fields are readable the same way)
- * so it's usable directly in tests/scripts without a live DB connection.
+ * { geometry, areaSqm, shapeType, lineMeta? } — no DB access. Takes a plain
+ * object (or a Mongoose Activity document, whose fields are readable the
+ * same way) so it's usable directly in tests/scripts without a live DB
+ * connection. `lineMeta` is only present when shapeType === 'line' (Phase 8).
  */
 export function generateTerritoryGeometry(activity) {
   const { gpsPath, calories, isLoop, distanceKm } = activity;
@@ -270,9 +290,12 @@ export function generateTerritoryGeometry(activity) {
  * here — needed so there's a document to hand to `onBeforeSave` before it
  * hits the DB. Called with no options, this function behaves exactly as it
  * did before Phase 6.
+ *
+ * PHASE 8 CHANGE: also attaches `lineMeta` to the constructed document when
+ * generateTerritoryGeometry() returned one (line-shaped territories only).
  */
 export async function generateTerritory(activity, user, { onBeforeSave } = {}) {
-  const { geometry, areaSqm, shapeType } = generateTerritoryGeometry(activity);
+  const { geometry, areaSqm, shapeType, lineMeta } = generateTerritoryGeometry(activity);
 
   const territory = new Territory({
     ownerId: user._id,
@@ -283,6 +306,9 @@ export async function generateTerritory(activity, user, { onBeforeSave } = {}) {
     // Strength starts equal to areaSqm — this is the "health pool" a siege
     // (Phase 6/7) has to exceed before a weaker invader converts ownership.
     strength: areaSqm,
+    // PHASE 8 — only set for shapeType === 'line'; omitted (schema default
+    // null) for loop/random. See utils/decayEngine.js for the consumer.
+    ...(lineMeta ? { lineMeta } : {}),
     // siegeDamage / lastReinforcedAt / decayState all use schema defaults.
   });
 

@@ -9,6 +9,7 @@ import profileRouter from './routes/profile.js';
 import activitiesRouter from './routes/activities.js';
 import territoriesRouter from './routes/territories.js'; // Phase 4
 import leaderboardRouter from './routes/leaderboard.js'; // Phase 5
+import streakStoppersRouter from './routes/streakStoppers.js'; // Phase 8
 
 export function createApp() {
   const app = express();
@@ -29,6 +30,7 @@ export function createApp() {
   app.use('/api/activities', activitiesRouter); // Phase 2
   app.use('/api/territories', territoriesRouter); // Phase 4 — GET /nearby only for now
   app.use('/api/leaderboard', leaderboardRouter); // Phase 5
+  app.use('/api/streak-stoppers', streakStoppersRouter); // Phase 8 — POST /use
 
   // Routers added in later phases mount here, e.g.:
   // app.use('/api/friends', friendsRouter);       // Phase 9

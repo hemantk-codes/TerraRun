@@ -5,6 +5,7 @@ import { generateTerritory } from '../utils/territoryEngine.js';
 import { awardCalonsForAreaGain } from '../utils/calonsEngine.js'; // Phase 5
 import { resolveInvasions } from '../utils/invasionEngine.js'; // Phase 6
 import { resolveSplits } from '../utils/splitEngine.js'; // Phase 7
+import { processActiveDecayForUserRun } from '../utils/decayEngine.js'; // Phase 8
 
 /**
  * POST /api/activities
@@ -146,12 +147,44 @@ export async function createActivity(req, res, next) {
       }
     }
 
-    // TODO(Phase 8): update user.lastRunDate / user.lastRunCalories /
-    //   currentStreak here once the streak/decay engine exists. Not touched
-    //   in Phase 2/3 so this route doesn't silently diverge from what
-    //   Phase 8 expects to own.
+    // --- PHASE 8: decay response + lastRun bookkeeping ---
+    // Every qualifying (isValidForTerritory) run updates the user's
+    // "last run" bookkeeping and, if any of their territories are
+    // currently mid-decay, responds to it synchronously — per the phase
+    // prompt, this happens "before the next cron tick", not by waiting for
+    // jobs/decayJobs.js. Deliberately independent of whether territory
+    // generation/invasion/split resolution above succeeded — a qualifying
+    // run counts for decay-pause purposes even in the rare case one of
+    // those threw on ITS OWN geometry.
+    //
+    // Order matters here: processActiveDecayForUserRun() reads
+    // user.lastRunCalories as "the figure from the run before this one",
+    // so it MUST run before that field is overwritten below.
+    //
+    // currentStreak itself is intentionally NOT touched here — per the
+    // Phase 8 spec it's incremented/reset by the nightly cron
+    // (jobs/decayJobs.js), based on which calendar day each Activity falls
+    // on, not synchronously per-request.
+    let decayResponses = [];
+    if (isValidForTerritory) {
+      try {
+        decayResponses = await processActiveDecayForUserRun({
+          user,
+          todayCalories: metrics.calories,
+          now: new Date(),
+        });
+        user.lastRunDate = new Date();
+        user.lastRunCalories = metrics.calories;
+        await user.save();
+      } catch (err) {
+        console.error(
+          `[decayEngine] Failed to process decay response for activity ${activity._id.toString()}:`,
+          err
+        );
+      }
+    }
 
-    res.status(201).json({ activity, territory, calonsEarned });
+    res.status(201).json({ activity, territory, calonsEarned, decayResponses });
   } catch (err) {
     next(err);
   }
