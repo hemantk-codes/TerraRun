@@ -10,6 +10,8 @@ import activitiesRouter from './routes/activities.js';
 import territoriesRouter from './routes/territories.js'; // Phase 4
 import leaderboardRouter from './routes/leaderboard.js'; // Phase 5
 import streakStoppersRouter from './routes/streakStoppers.js'; // Phase 8
+import friendsRouter from './routes/friends.js'; // Phase 9
+import messagesRouter from './routes/messages.js'; // Phase 9
 
 export function createApp() {
   const app = express();
@@ -31,9 +33,10 @@ export function createApp() {
   app.use('/api/territories', territoriesRouter); // Phase 4 — GET /nearby only for now
   app.use('/api/leaderboard', leaderboardRouter); // Phase 5
   app.use('/api/streak-stoppers', streakStoppersRouter); // Phase 8 — POST /use
+  app.use('/api/friends', friendsRouter); // Phase 9 — follow/unfollow/status/search
+  app.use('/api/messages', messagesRouter); // Phase 9 — conversation list + history (sending is Socket.io, see sockets/)
 
   // Routers added in later phases mount here, e.g.:
-  // app.use('/api/friends', friendsRouter);       // Phase 9
   // app.use('/api/notifications', notificationsRouter); // Phase 10
 
   // 404 fallback
