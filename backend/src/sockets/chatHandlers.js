@@ -2,26 +2,30 @@ import mongoose from 'mongoose';
 import { Message } from '../models/index.js';
 import { getConversationId } from '../utils/conversation.js';
 import { canChat } from '../utils/friendshipEngine.js';
+import { notify } from '../utils/notificationService.js'; // Phase 10
 
-// Tunable — generous enough for a real chat message, small enough to stop
-// someone pasting a novel into the socket.
 const MAX_MESSAGE_LENGTH = 2000;
 const ALLOWED_MESSAGE_TYPES = ['text', 'image', 'system'];
 
-/**
- * Registers all chat-related listeners on one connected socket. Called once
- * per connection from sockets/index.js.
- *
- * Room strategy:
- *   - `user:<userId>` — every socket auto-joins its own personal room on
- *     connect. Not used by anything in Phase 9 itself, but reserved for
- *     Phase 10 (server -> user push: new-message badges, notifications)
- *     without requiring the client to have a specific conversation open —
- *     also used below so the Chat tab's conversation LIST updates in real
- *     time even before its thread is opened.
- *   - `conversation:<conversationId>` — joined explicitly when the client
- *     opens a thread. Real-time `message:new` events are broadcast here.
- */
+// PHASE 10 — checks whether ANY currently-connected socket belonging to
+// `userId` is sitting in `roomName` right now. Used below to decide
+// whether a chat message should ALSO create a persisted/toast
+// Notification: if the recipient already has this exact thread open,
+// they're already seeing the message appear live via `message:new` —
+// creating a Notification on top of that would be a redundant toast
+// stacked on the message bubble that just rendered, which is the kind of
+// "duplicate/spammy notification" the Phase 10 integration checklist
+// warns about, even though it's not a literal double-fire of one event.
+function isUserInRoom(io, userId, roomName) {
+  const room = io.sockets.adapter.rooms.get(roomName);
+  if (!room) return false;
+  for (const socketId of room) {
+    const s = io.sockets.sockets.get(socketId);
+    if (s?.userId === userId) return true;
+  }
+  return false;
+}
+
 export function registerChatHandlers(io, socket) {
   socket.join(`user:${socket.userId}`);
 
@@ -60,9 +64,7 @@ export function registerChatHandlers(io, socket) {
 
       // Authorization happens HERE, at send time — not just once at
       // connect — so an unfollow that happens mid-session takes effect on
-      // the very next message rather than only after a reconnect. This is
-      // what the Phase 9 integration checklist's "un-friending disables
-      // future [messaging]" behavior actually rests on.
+      // the very next message rather than only after a reconnect.
       const allowed = await canChat(socket.userId, otherUserId);
       if (!allowed) {
         return ack?.({
@@ -91,10 +93,19 @@ export function registerChatHandlers(io, socket) {
       // Broadcast to whoever has the thread open right now...
       io.to(`conversation:${conversationId}`).emit('message:new', payload);
       // ...and nudge the recipient's personal room too, in case they're
-      // elsewhere in the app (e.g. viewing the Chat tab's conversation list
-      // rather than this specific thread). Harmless double-delivery if
-      // they're in both rooms — the frontend dedupes by message _id.
+      // elsewhere in the app.
       io.to(`user:${otherUserId}`).emit('message:new', payload);
+
+      // PHASE 10 — persisted + toast notification, skipped only when the
+      // recipient already has this exact thread open (see isUserInRoom).
+      const recipientHasThreadOpen = isUserInRoom(io, otherUserId, `conversation:${conversationId}`);
+      if (!recipientHasThreadOpen) {
+        await notify(otherUserId, 'chat_message_received', {
+          conversationId,
+          senderId: socket.userId,
+          preview: message.content.slice(0, 140),
+        });
+      }
 
       ack?.({ ok: true, message: payload });
     } catch (err) {

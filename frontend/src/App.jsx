@@ -9,6 +9,7 @@ import FriendsChat from './pages/FriendsChat.jsx'
 import StartRun from './pages/StartRun.jsx'
 import TerritorySplitModal from './components/TerritorySplitModal.jsx' // Phase 7
 import { usePendingTerritorySplits } from './hooks/usePendingTerritorySplits.js' // Phase 7
+import NotificationToastStack from './components/notifications/NotificationToastStack.jsx' // Phase 10
 
 function NotFound() {
   return (
@@ -20,9 +21,7 @@ function NotFound() {
 }
 
 export default function App() {
-  // Phase 7 — checked once per app session, independent of route, so the
-  // modal can surface "on next login/page-load" per the phase prompt
-  // regardless of which page the user happens to land on first.
+  // Phase 7 — checked once per app session, independent of route.
   const { pendingSplits, dismiss } = usePendingTerritorySplits()
 
   return (
@@ -57,6 +56,10 @@ export default function App() {
       {pendingSplits.length > 0 && (
         <TerritorySplitModal pendingSplits={pendingSplits} onResolved={dismiss} />
       )}
+
+      {/* Phase 10 — live toast pop-ups, mounted once near the app root so
+          they float above whatever page is currently showing. */}
+      <NotificationToastStack />
     </div>
   )
 }

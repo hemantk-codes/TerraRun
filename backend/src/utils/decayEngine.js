@@ -1,61 +1,25 @@
 // PHASE 8 — Territory Decay Engine + Streak Stopper (decay half)
+// PHASE 10 UPDATE — all three bare `Notification.create(...)` calls this
+// file used to make (territory_fully_decayed, decay_warning,
+// streak_stopper_offer) now go through notify() instead, so each one also
+// pushes a live Socket.io toast, not just a silent DB row.
 //
-// Two entry points call into this file:
-//
-//   1. jobs/decayJobs.js's daily cron -> processDecayForAllEligibleTerritories()
-//      Applies ONE DAY of shrink to every territory owned by a user whose
-//      lastRunDate is >= INACTIVITY_DAYS_THRESHOLD days stale.
-//
-//   2. controllers/activityController.js, synchronously right after a
-//      qualifying activity is saved -> processActiveDecayForUserRun()
-//      Compares today's calories to the user's last-known calories and
-//      pauses / reduces / reverses that user's in-progress decay(s)
-//      accordingly. This does NOT wait for the next cron tick — the phase
-//      prompt is explicit that this happens "before the next cron tick".
-//
-// Both share the same shrink math (computeShrunkGeometry / shrinkRadially /
-// trimLineTerritory) so there's exactly one implementation of "what does
-// losing N sqm of territory look like", whether that loss came from a full
-// cron day or a partial run-triggered reduction.
-//
-// ⚠️ KNOWN LIMITATION (concurrency): same as invasionEngine.js/splitEngine.js
-// — plain sequential reads/writes, no Mongo transaction. Two decay-affecting
-// events landing on the same territory in the same instant (e.g. the cron
-// firing at the exact moment a request is mutating the same territory)
-// could race. Not addressed here, consistent with the rest of this codebase
-// (see invasionEngine.js's header for the fuller rationale).
-//
-// ⚠️ KNOWN LIMITATION (line decay on a territory that's since been
-// partially invaded/split): a line-shaped Territory's `lineMeta.sourceLine`
-// is only kept in sync by THIS file (trim/extend). Phase 6/7 mutate
-// `territory.geometry` directly via turf.difference when a line territory
-// is invaded or sliced, without touching `lineMeta` — so lineMeta can go
-// stale relative to the actual current geometry after such an event.
-// trimLineTerritory()/extendLineTerritory() are wrapped in a try/catch that
-// falls back to the radial-buffer method on any failure, which keeps decay
-// from crashing on stale data, but the fallback's shrink shape (radial
-// instead of ribbon-end-trim) won't perfectly match the ribbon's visual
-// shape in that edge case. Flagging rather than solving, since fixing it
-// properly means Phase 6/7 also updating lineMeta on every geometry
-// mutation — out of scope for Phase 8 itself.
+// (All other header notes from Phase 8 — the two entry points, the shared
+// shrink math, the concurrency/line-decay known limitations — are
+// unchanged.)
 
 import * as turf from '@turf/turf';
 import User from '../models/User.js';
 import Territory from '../models/Territory.js';
-import Notification from '../models/Notification.js';
+import { notify } from './notificationService.js'; // Phase 10
 import { AREA_PER_CALORIE } from './territoryEngine.js';
 
 // --- Tunables ---
-// "3 days" per spec point v / the Phase 8 prompt's decay trigger.
 export const INACTIVITY_DAYS_THRESHOLD = 3;
-// daysToZero = clamp(round(0.15 * sqrt(areaSqm)), 3, 30) — spec's literal formula.
 export const DECAY_DAYS_TO_ZERO_COEFFICIENT = 0.15;
 export const DECAY_DAYS_TO_ZERO_MIN = 3;
 export const DECAY_DAYS_TO_ZERO_MAX = 30;
-// Below this area, a territory counts as fully decayed and gets deleted
-// rather than persisted as an invisible sliver. Spec says "e.g. 50 sqm".
 export const DECAY_FLOOR_AREA_SQM = 50;
-// Ratio band for "matching intensity" — decay is fully paused for the day.
 export const RUN_RATIO_PAUSE_LOW = 0.9;
 export const RUN_RATIO_PAUSE_HIGH = 1.1;
 
@@ -63,19 +27,11 @@ function toGeoJSON(geom) {
   return typeof geom?.toObject === 'function' ? geom.toObject() : geom;
 }
 
-/**
- * clamp(round(0.15 * sqrt(areaSqm)), 3, 30) — exported for tests/tuning.
- */
 export function computeDaysToZero(areaSqm) {
   const raw = Math.round(DECAY_DAYS_TO_ZERO_COEFFICIENT * Math.sqrt(Math.max(areaSqm, 0)));
   return Math.min(DECAY_DAYS_TO_ZERO_MAX, Math.max(DECAY_DAYS_TO_ZERO_MIN, raw));
 }
 
-// For a rough circle, area = pi*r^2. Given a current area and a signed
-// delta (negative = shrink, positive = grow), returns the radius offset to
-// hand to turf.buffer (negative buffers inward, positive buffers outward) —
-// this is the exact formula the phase prompt spells out for the shrink
-// case, generalized to also cover growth (ratio > 1.1) with the same math.
 function estimateRadiusDeltaForAreaChange(currentAreaSqm, deltaAreaSqm) {
   if (currentAreaSqm <= 0) return 0;
   const currentRadius = Math.sqrt(currentAreaSqm / Math.PI);
@@ -84,7 +40,6 @@ function estimateRadiusDeltaForAreaChange(currentAreaSqm, deltaAreaSqm) {
   return targetRadius - currentRadius;
 }
 
-// --- Shrink: loop/random shapes, via radial (turf.buffer) offset ---
 function shrinkRadially(territory, shrinkAmountSqm) {
   const radiusDelta = estimateRadiusDeltaForAreaChange(territory.areaSqm, -shrinkAmountSqm);
   const feature = turf.feature(toGeoJSON(territory.geometry));
@@ -107,26 +62,15 @@ function shrinkRadially(territory, shrinkAmountSqm) {
   return { geometry: buffered.geometry, areaSqm: newAreaSqm };
 }
 
-// --- Shrink: line shapes, via trimming the source centerline ---
 function trimLineTerritory(territory, shrinkAmountSqm) {
   const { sourceLine, bufferWidthMeters } = territory.lineMeta;
   const lineFeature = turf.lineString(sourceLine.coordinates);
   const currentLengthM = turf.length(lineFeature, { units: 'meters' });
 
-  // Per the phase-8 prompt's literal formula: trim length = shrink / width.
-  // (Note: Phase 3 sizes a ribbon as area ~= length * 2*width, i.e. it uses
-  // the FULL width, not the half-width, for area math — so this trim
-  // formula and Phase 3's sizing formula use width two different ways.
-  // That mismatch is in the phase prompt text itself; implemented literally
-  // here rather than "corrected" so decay behavior matches what was
-  // actually specified.)
   const trimLengthM = shrinkAmountSqm / bufferWidthMeters;
   const newLengthM = currentLengthM - trimLengthM;
   if (newLengthM <= 0) return null; // fully consumed
 
-  // Trim from the end farthest from the path's start — sourceLine.coords[0]
-  // is the start (see territoryEngine.js), so slicing [0, newLengthM] keeps
-  // the start-anchored portion and cuts the far end, per spec.
   const trimmedLine = turf.lineSliceAlong(lineFeature, 0, newLengthM, { units: 'meters' });
   const buffered = turf.buffer(trimmedLine, bufferWidthMeters, { units: 'meters' });
   if (!buffered) return null;
@@ -141,12 +85,6 @@ function trimLineTerritory(territory, shrinkAmountSqm) {
   };
 }
 
-/**
- * Shared shrink resolver used by both the cron's full-day shrink and the
- * run-triggered reduced shrink. Returns null when the shrink consumes the
- * whole territory (caller should delete it), otherwise
- * { geometry, areaSqm, lineMeta? }.
- */
 function computeShrunkGeometry(territory, shrinkAmountSqm) {
   if (!Number.isFinite(shrinkAmountSqm) || shrinkAmountSqm <= 0) {
     return { geometry: toGeoJSON(territory.geometry), areaSqm: territory.areaSqm };
@@ -160,14 +98,12 @@ function computeShrunkGeometry(territory, shrinkAmountSqm) {
         `[decayEngine] Line-trim decay failed for territory ${territory._id.toString()}, falling back to radial shrink:`,
         err.message
       );
-      // fall through to the radial approach below
     }
   }
 
   return shrinkRadially(territory, shrinkAmountSqm);
 }
 
-// --- Growth (ratio > 1.1): loop/random via radial buffer, line via extension ---
 function growRadially(territory, bonusAreaSqm) {
   const radiusDelta = estimateRadiusDeltaForAreaChange(territory.areaSqm, bonusAreaSqm);
   const feature = turf.feature(toGeoJSON(territory.geometry));
@@ -186,10 +122,6 @@ function extendLineTerritory(territory, bonusAreaSqm) {
   const coords = sourceLine.coordinates;
   if (!Array.isArray(coords) || coords.length < 2) return null;
 
-  // Same length<->area convention as trimLineTerritory (extend length =
-  // bonus / width) — kept symmetric with the trim formula rather than
-  // introducing a second convention for growth. Not separately spec'd, so
-  // flagged as an extrapolation.
   const extendLengthM = bonusAreaSqm / bufferWidthMeters;
   const last = coords[coords.length - 1];
   const secondLast = coords[coords.length - 2];
@@ -207,12 +139,6 @@ function extendLineTerritory(territory, bonusAreaSqm) {
   };
 }
 
-/**
- * Applies growth to `territory` in place (mutates + saves) and clears its
- * decayState entirely, per spec ("they're back to full health, not just
- * paused"). No-ops (returns without saving) if bonusAreaSqm isn't usable or
- * the geometry op fails outright.
- */
 async function growTerritory(territory, bonusAreaSqm) {
   if (!Number.isFinite(bonusAreaSqm) || bonusAreaSqm <= 0) return;
 
@@ -230,7 +156,7 @@ async function growTerritory(territory, bonusAreaSqm) {
   if (!result) {
     result = growRadially(territory, bonusAreaSqm);
   }
-  if (!result) return; // couldn't grow geometrically — leave the territory untouched rather than error the run
+  if (!result) return; // couldn't grow geometrically — leave the territory untouched
 
   territory.geometry = result.geometry;
   territory.areaSqm = result.areaSqm;
@@ -241,41 +167,30 @@ async function growTerritory(territory, bonusAreaSqm) {
 
 /**
  * Deletes a fully-decayed territory and notifies its (former) owner.
- * Shared by both the cron path and the run-triggered reduced-shrink path.
+ * PHASE 10: now routed through notify() instead of a bare
+ * Notification.create() — pushes a live toast in addition to the DB row.
  */
 async function deleteFullyDecayedTerritory(territory) {
   await Territory.deleteOne({ _id: territory._id });
-  await Notification.create({
-    userId: territory.ownerId,
-    type: 'territory_fully_decayed',
-    payload: { territoryId: territory._id.toString(), shapeType: territory.shapeType },
+  await notify(territory.ownerId, 'territory_fully_decayed', {
+    territoryId: territory._id.toString(),
+    shapeType: territory.shapeType,
   });
-  // TODO(Phase 10): route this through the real notify(userId, type,
-  // payload) service (see invasionEngine.js/splitEngine.js's matching
-  // TODOs) once it exists, so the live Socket.io toast fires too.
 }
 
 /**
- * One cron-tick's worth of decay for a single territory. Mutates + saves
- * (or deletes) `territory` as appropriate. `user` is the territory's owner,
- * already confirmed stale by the caller.
- *
- * Exported (not just called internally) so it's directly testable/
- * triggerable per-territory without running the full cron sweep.
+ * One cron-tick's worth of decay for a single territory.
  */
 export async function applyDailyDecayTick({ territory, user, now }) {
   const hasDecayState = !!(territory.decayState && territory.decayState.startedAt);
 
   if (hasDecayState && territory.decayState.startedAt > now) {
-    // Active streak-stopper freeze (see DecayStateSchema's comment in
-    // Territory.js). The phase prompt frames "no unused decay freeze
-    // active" as a per-USER gate; decayState is per-TERRITORY, so it's
-    // expressed here as a per-territory skip instead.
+    // Active streak-stopper freeze.
     return { action: 'frozen' };
   }
 
   const isFirstDay = !hasDecayState;
-  
+
   let dailyShrinkRate;
 
   if (isFirstDay) {
@@ -298,27 +213,19 @@ export async function applyDailyDecayTick({ territory, user, now }) {
   await territory.save();
 
   if (isFirstDay) {
-    // Per spec 1.d: only on the FIRST day shrinkage starts, not every day.
-    await Notification.create({
-      userId: user._id,
-      type: 'decay_warning',
-      payload: {
-        territoryId: territory._id.toString(),
-        dailyShrinkRate,
-        daysToZero: territory.decayState.daysToZero,
-      },
+    // PHASE 10: notify() instead of a bare Notification.create().
+    await notify(user._id, 'decay_warning', {
+      territoryId: territory._id.toString(),
+      dailyShrinkRate,
+      daysToZero: territory.decayState.daysToZero,
     });
 
-    // Per spec section 3: offer (don't auto-consume) a Streak Stopper the
-    // first time a territory starts shrinking, if the user has one
-    // available. Decay itself still proceeds this tick either way — see
-    // this file's header / streakStopperController.js for how a user
-    // actually freezes it after the fact.
+    // Offer (don't auto-consume) a Streak Stopper the first time a
+    // territory starts shrinking, if the user has one available.
     if (user.streakStoppers > 0) {
-      await Notification.create({
-        userId: user._id,
-        type: 'streak_stopper_offer',
-        payload: { territoryId: territory._id.toString(), streakStoppersAvailable: user.streakStoppers },
+      await notify(user._id, 'streak_stopper_offer', {
+        territoryId: territory._id.toString(),
+        streakStoppersAvailable: user.streakStoppers,
       });
     }
   }
@@ -327,10 +234,8 @@ export async function applyDailyDecayTick({ territory, user, now }) {
 }
 
 /**
- * Cron entry point (step 1 of the phase prompt): finds every user whose
- * lastRunDate is >= INACTIVITY_DAYS_THRESHOLD days stale, and applies one
- * day of decay to each territory they own (skipping any under an active
- * freeze — see applyDailyDecayTick).
+ * Cron entry point: finds every user whose lastRunDate is stale, and
+ * applies one day of decay to each territory they own.
  */
 export async function processDecayForAllEligibleTerritories(now = new Date()) {
   const staleCutoff = new Date(now.getTime() - INACTIVITY_DAYS_THRESHOLD * 24 * 60 * 60 * 1000);
@@ -359,19 +264,8 @@ export async function processDecayForAllEligibleTerritories(now = new Date()) {
 }
 
 /**
- * Run-triggered response (step 2 of the phase prompt): call this right
- * after saving a qualifying Activity, BEFORE overwriting
- * user.lastRunCalories with today's value — it reads user.lastRunCalories
- * itself as "the figure from the most recent run before this one".
- *
- * For every territory this user owns that's currently mid-decay
- * (decayState.startedAt is set — including territories currently frozen;
- * a fresh run's effort is honored either way), compares todayCalories to
- * that previous figure and pauses / reduces / reverses decay accordingly.
- *
- * No-ops entirely (returns []) if there's no previous calorie figure to
- * compare against (the user's very first qualifying run ever) or the user
- * owns no territory currently mid-decay.
+ * Run-triggered response: call right after saving a qualifying Activity,
+ * BEFORE overwriting user.lastRunCalories with today's value.
  */
 export async function processActiveDecayForUserRun({ user, todayCalories, now = new Date() }) {
   const previousCalories = user.lastRunCalories;
@@ -387,11 +281,6 @@ export async function processActiveDecayForUserRun({ user, todayCalories, now = 
   for (const territory of territories) {
     try {
       if (ratio >= RUN_RATIO_PAUSE_LOW && ratio <= RUN_RATIO_PAUSE_HIGH) {
-        // Matching intensity: pause. No geometry/decayState change needed
-        // here — activityController.js updates user.lastRunDate to "now"
-        // for every qualifying run regardless of ratio, and THAT is what
-        // resets the "days since last run" clock the cron checks. There's
-        // no separate "consecutive missed days" counter to zero out.
         results.push({ territoryId: territory._id, action: 'paused', ratio });
         continue;
       }

@@ -2,15 +2,13 @@ import cron from 'node-cron';
 import User from '../models/User.js';
 import WeeklyScore from '../models/WeeklyScore.js';
 import MonthlyScore from '../models/MonthlyScore.js';
+import { checkAndNotifyOvertakes } from '../utils/leaderboardOvertakeEngine.js'; // Phase 10
 
 // --- Tunables — node-cron fields are: minute hour day-of-month month day-of-week ---
 const WEEKLY_RESET_CRON = '0 0 * * 1'; // every Monday, 00:00 server time
 const MONTHLY_RESET_CRON = '0 0 1 * *'; // the 1st of every month, 00:00 server time
 
 // weekStartDate/monthStartDate describe the week/month that JUST CLOSED.
-// Since each job fires exactly at that boundary instant (Monday 00:00 /
-// 1st-of-month 00:00), "just closed" means 7 days back / one calendar month
-// back from `now`.
 function getJustEndedWeekStart(now = new Date()) {
   const d = new Date(now);
   d.setHours(0, 0, 0, 0);
@@ -26,18 +24,40 @@ function getJustEndedMonthStart(now = new Date()) {
   return d;
 }
 
+// PHASE 10 — the period immediately BEFORE the one that just closed, i.e.
+// what leaderboardOvertakeEngine.js diffs against. Plain subtraction is
+// exact for weekly (always 7 days); setMonth() correctly handles monthly's
+// variable day-count the same way getJustEndedMonthStart already does.
+function getPreviousWeekStart(justEndedWeekStart) {
+  return new Date(justEndedWeekStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+}
+
+function getPreviousMonthStart(justEndedMonthStart) {
+  const d = new Date(justEndedMonthStart);
+  d.setMonth(d.getMonth() - 1);
+  return d;
+}
+
 /**
  * Snapshots every user's CURRENT calonsWeekly into WeeklyScore, then resets
  * calonsWeekly to 0. calonsTotal is never touched here — it's monotonic by
  * design (see calonsEngine.js).
- *
- * Exported directly (not just registered as a cron callback) so it can be
- * called on demand — see scripts/triggerCalonsReset.js — without waiting
- * for a real Monday to test it.
  */
 export async function runWeeklyReset(now = new Date()) {
   const weekStartDate = getJustEndedWeekStart(now);
-  const users = await User.find({ calonsWeekly: { $gt: 0 } }).select('_id calonsWeekly');
+  const users = await User.find({ calonsWeekly: { $gt: 0 } }).select('_id calonsWeekly region');
+
+  // PHASE 10 — must run BEFORE calonsWeekly is reset to 0 below (needs the
+  // live pre-reset values). Reads LAST week's already-committed
+  // WeeklyScore snapshot to diff against, so it doesn't matter whether
+  // this runs before or after this week's own snapshot insert just below.
+  await checkAndNotifyOvertakes({
+    period: 'weekly',
+    scoreField: 'calonsWeekly',
+    justEndedPeriodStart: weekStartDate,
+    previousPeriodStart: getPreviousWeekStart(weekStartDate),
+    users,
+  });
 
   if (users.length > 0) {
     await WeeklyScore.insertMany(
@@ -54,7 +74,15 @@ export async function runWeeklyReset(now = new Date()) {
 /** Same idea as runWeeklyReset, for the monthly cycle. */
 export async function runMonthlyReset(now = new Date()) {
   const monthStartDate = getJustEndedMonthStart(now);
-  const users = await User.find({ calonsMonthly: { $gt: 0 } }).select('_id calonsMonthly');
+  const users = await User.find({ calonsMonthly: { $gt: 0 } }).select('_id calonsMonthly region');
+
+  await checkAndNotifyOvertakes({
+    period: 'monthly',
+    scoreField: 'calonsMonthly',
+    justEndedPeriodStart: monthStartDate,
+    previousPeriodStart: getPreviousMonthStart(monthStartDate),
+    users,
+  });
 
   if (users.length > 0) {
     await MonthlyScore.insertMany(
@@ -68,22 +96,9 @@ export async function runMonthlyReset(now = new Date()) {
   );
 }
 
-// TODO(Phase 10): "leaderboard_overtaken" notifications are supposed to be
-// checked HERE (per the Phase 10 prompt: "check this in the Phase 5
-// weekly/monthly cron jobs, not on every single run") — i.e. after each
-// reset, compare each user's just-snapshotted rank against their previous
-// snapshot and notify anyone a friend/regional peer passed. Deliberately
-// NOT implemented yet since Notification wiring is explicitly Phase 10's
-// job and the Friendship-based "friends" scope doesn't exist until Phase 9
-// either — both runWeeklyReset/runMonthlyReset are natural places to add
-// that check once those phases land.
-
 /**
  * Registers both jobs on the real cron schedule. Call once from server.js
- * after the DB connects. Kept as an explicit opt-in step (rather than
- * scheduling at module-import time) so the manual-trigger script and any
- * future tests can import runWeeklyReset/runMonthlyReset directly without
- * silently also wiring up a second, real scheduled job.
+ * after the DB connects.
  */
 export function registerCalonsResetJobs() {
   cron.schedule(WEEKLY_RESET_CRON, () => {

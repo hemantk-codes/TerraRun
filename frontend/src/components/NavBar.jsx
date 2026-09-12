@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import NotificationBell from './notifications/NotificationBell.jsx' // Phase 10
 
 const links = [
   { to: '/', label: 'Map', end: true },
@@ -49,6 +50,7 @@ export default function NavBar() {
 
         {isAuthenticated ? (
           <div className="flex items-center gap-3">
+            <NotificationBell />
             <span
               className="hidden h-6 w-6 flex-none rounded-full border border-ground-700 sm:block"
               style={{ backgroundColor: user?.preferredColor || '#3B82F6' }}

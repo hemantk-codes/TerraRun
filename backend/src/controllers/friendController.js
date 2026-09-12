@@ -2,13 +2,8 @@ import mongoose from 'mongoose';
 import { Friendship, User } from '../models/index.js';
 import { ApiError } from '../utils/apiError.js';
 import { getStatus } from '../utils/friendshipEngine.js';
+import { notify } from '../utils/notificationService.js'; // Phase 10
 
-// ⚠️ INTEGRATION ASSUMPTION: middleware/auth.js (Phase 1) sets req.userId to
-// the authenticated user's id string (payload.sub) — same assumption every
-// other controller in this codebase already makes. The req.user?.id /
-// req.user?._id fallbacks just match the defensive style used elsewhere
-// (activityController.js, territoryController.js, etc.) in case that ever
-// changes.
 function resolveUserId(req) {
   return req.userId || req.user?.id || req.user?._id;
 }
@@ -21,10 +16,7 @@ function assertValidObjectId(id, label = 'id') {
 
 /**
  * POST /api/friends/follow/:userId
- *
- * Idempotent: following someone you already follow is a 200 no-op rather
- * than an error — simpler for the frontend than special-casing Friendship's
- * unique { followerId, followingId } duplicate-key error on every call.
+ * Idempotent: following someone you already follow is a 200 no-op.
  */
 export async function followUser(req, res, next) {
   try {
@@ -39,6 +31,17 @@ export async function followUser(req, res, next) {
     const target = await User.findById(followingId).select('_id');
     if (!target) throw new ApiError(404, 'User not found.');
 
+    // PHASE 10 — checked BEFORE the upsert so we can tell a genuinely NEW
+    // follow apart from a repeated call to this idempotent endpoint (e.g.
+    // a double-click, or a retried request after a network blip) — only
+    // the former should notify. Small window between this read and the
+    // upsert below where a concurrent duplicate request could both see
+    // "not already following" and both notify; accepted as-is, consistent
+    // with this codebase's existing stance on non-transactional writes
+    // (see invasionEngine.js's header) rather than a real correctness bug
+    // worth a transaction for.
+    const alreadyFollowing = await Friendship.exists({ followerId, followingId, status: 'active' });
+
     try {
       await Friendship.findOneAndUpdate(
         { followerId, followingId },
@@ -51,10 +54,13 @@ export async function followUser(req, res, next) {
       if (err.code !== 11000) throw err;
     }
 
-    // TODO(Phase 10): notify(followingId, 'friend_request', { fromUserId: followerId })
-    // once the generic notification service exists — this is explicitly a
-    // Phase 10 wiring concern per the phase prompts, not something to stub
-    // here with a bare Notification.create().
+    if (!alreadyFollowing) {
+      const follower = await User.findById(followerId).select('name');
+      await notify(followingId, 'friend_request', {
+        fromUserId: followerId.toString(),
+        fromUserName: follower?.name || 'Someone',
+      });
+    }
 
     const status = await getStatus(followerId, followingId);
     res.status(200).json({ status });
@@ -113,13 +119,6 @@ function escapeRegex(str) {
 
 /**
  * GET /api/friends/search?q=<fragment>&limit=<>
- * Powers the Friends tab's search box. Searches by NAME only (deliberately
- * not email/phone — those are more sensitive lookup keys and the spec's
- * non-functional requirements already flag user privacy as a concern
- * elsewhere; a name-substring search is enough for "find someone I know").
- * Each match comes back with its follow status already computed from the
- * requesting user's perspective, so the frontend doesn't need a second
- * round-trip per result to render the right button.
  */
 export async function searchUsers(req, res, next) {
   try {
@@ -159,12 +158,8 @@ export async function searchUsers(req, res, next) {
 
 /**
  * GET /api/friends
- *
  * Everyone the requesting user can currently CHAT with — i.e. the union of
- * "I follow them" and "they follow me" — each tagged with `mutual` (both
- * directions). This is deliberately broader than "mutual friends only":
- * it's what the Chat tab needs to offer as "start a new conversation with…"
- * candidates, matching canChat() exactly rather than requiring mutual.
+ * "I follow them" and "they follow me" — each tagged with `mutual`.
  */
 export async function listFriends(req, res, next) {
   try {
@@ -188,7 +183,7 @@ export async function listFriends(req, res, next) {
     const friends = [...chattableIds]
       .map((id) => {
         const u = byId.get(id);
-        if (!u) return null; // deleted-user guard, same defensive pattern as territoryController.js
+        if (!u) return null; // deleted-user guard
         return {
           id: u._id,
           name: u.name,

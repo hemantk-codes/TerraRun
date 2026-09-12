@@ -7,11 +7,12 @@ import healthRouter from './routes/health.js';
 import authRouter from './routes/auth.js';
 import profileRouter from './routes/profile.js';
 import activitiesRouter from './routes/activities.js';
-import territoriesRouter from './routes/territories.js'; // Phase 4
-import leaderboardRouter from './routes/leaderboard.js'; // Phase 5
-import streakStoppersRouter from './routes/streakStoppers.js'; // Phase 8
-import friendsRouter from './routes/friends.js'; // Phase 9
-import messagesRouter from './routes/messages.js'; // Phase 9
+import territoriesRouter from './routes/territories.js';
+import leaderboardRouter from './routes/leaderboard.js';
+import streakStoppersRouter from './routes/streakStoppers.js';
+import friendsRouter from './routes/friends.js';
+import messagesRouter from './routes/messages.js';
+import notificationsRouter from './routes/notifications.js'; // Phase 10
 
 export function createApp() {
   const app = express();
@@ -30,22 +31,19 @@ export function createApp() {
   app.use('/api/auth', authRouter); // Phase 1
   app.use('/api/profile', profileRouter); // Phase 1
   app.use('/api/activities', activitiesRouter); // Phase 2
-  app.use('/api/territories', territoriesRouter); // Phase 4 — GET /nearby only for now
+  app.use('/api/territories', territoriesRouter); // Phase 4
   app.use('/api/leaderboard', leaderboardRouter); // Phase 5
-  app.use('/api/streak-stoppers', streakStoppersRouter); // Phase 8 — POST /use
-  app.use('/api/friends', friendsRouter); // Phase 9 — follow/unfollow/status/search
-  app.use('/api/messages', messagesRouter); // Phase 9 — conversation list + history (sending is Socket.io, see sockets/)
-
-  // Routers added in later phases mount here, e.g.:
-  // app.use('/api/notifications', notificationsRouter); // Phase 10
+  app.use('/api/streak-stoppers', streakStoppersRouter); // Phase 8
+  app.use('/api/friends', friendsRouter); // Phase 9
+  app.use('/api/messages', messagesRouter); // Phase 9
+  app.use('/api/notifications', notificationsRouter); // Phase 10 — list + mark-read
 
   // 404 fallback
   app.use((req, res) => {
     res.status(404).json({ error: 'Not found' });
   });
 
-  // Centralized error handler — later phases should throw/next(err) rather
-  // than hand-rolling res.status(...) blocks everywhere.
+  // Centralized error handler
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
     console.error('[error]', err);

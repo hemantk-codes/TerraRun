@@ -1,44 +1,27 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useAuth } from '../../context/AuthContext.jsx'
+import { useSocket } from '../../context/SocketContext.jsx' // Phase 10
 import { listConversations, listFriends } from '../../lib/socialApi.js'
-import { getSocket, disconnectSocket } from '../../lib/socket.js'
 import ChatThread from './ChatThread.jsx'
 
 /**
- * Chat tab: a left-hand list combining (a) existing conversations, newest
- * first, and (b) any chattable contact (one-directional or mutual follow)
- * you haven't messaged yet — so you can start a brand-new thread — then the
- * selected thread on the right via ChatThread.
+ * Chat tab: a left-hand list combining existing conversations and any
+ * chattable contact you haven't messaged yet, plus the selected thread on
+ * the right via ChatThread.
  *
- * One Socket.io connection is opened for the lifetime of this tab (not one
- * per open thread) and handed down to ChatThread, which only joins/leaves
- * the relevant conversation ROOM as the selection changes. The connection
- * itself still needs the raw access token string (Socket.io's handshake
- * has no equivalent of the `api` client the REST calls below go through),
- * which is why this is the one place in the Chat tab that still reads
- * `accessToken` off useAuth().
+ * PHASE 10 UPDATE: this component used to own the Socket.io connection's
+ * whole lifecycle (connect on mount, disconnect on unmount). Notifications
+ * (this phase) need that same connection alive on every page, not just
+ * while this tab is open, so ownership moved up to <SocketProvider> (see
+ * main.jsx / context/SocketContext.jsx). This component now just reads the
+ * already-connected socket via useSocket().
  */
 export default function ChatTab() {
-  const { accessToken } = useAuth()
+  const socket = useSocket()
   const [conversations, setConversations] = useState([])
   const [contacts, setContacts] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [socket, setSocket] = useState(null)
-
-  useEffect(() => {
-    // No token yet (still initializing, or logged out) — don't attempt a
-    // connection the server would just reject as UNAUTHORIZED.
-    if (!accessToken) {
-      disconnectSocket()
-      setSocket(null)
-      return
-    }
-    const s = getSocket(accessToken)
-    setSocket(s)
-    return () => disconnectSocket()
-  }, [accessToken])
 
   async function refresh() {
     try {
@@ -62,11 +45,6 @@ export default function ChatTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Re-pull the conversation list whenever any message arrives, so a brand
-  // new conversation (or an updated "last message" preview) shows up
-  // without a manual refresh. Cheap enough at this project's scale — a
-  // dedicated "conversation updated" event would be the next step if this
-  // ever needed to scale further.
   useEffect(() => {
     if (!socket) return
     socket.on('message:new', refresh)
@@ -87,10 +65,6 @@ export default function ChatTab() {
     const conversationRows = conversations.map((c) => ({
       key: c.otherUser.id,
       otherUser: c.otherUser,
-      // A conversation partner who has since fully unfollowed (and been
-      // unfollowed by) the current user won't appear in `contacts` at all
-      // — `mutual` correctly falls back to false, disabling the call
-      // button, while the message history above still renders normally.
       mutual: contacts.find((f) => f.id === c.otherUser.id)?.mutual ?? false,
       preview: c.lastMessage.content,
     }))
