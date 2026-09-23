@@ -17,16 +17,24 @@ import { runWeeklyReset, runMonthlyReset } from '../src/jobs/calonsResetJobs.js'
 
 const mode = process.argv[2] || 'weekly';
 
+const dateArg = process.argv[3];
+const now = dateArg ? new Date(dateArg) : new Date();
+
+if (Number.isNaN(now.getTime())) {
+  console.error(`[script] Invalid date: ${dateArg}`);
+  process.exit(1);
+}
+
 async function main() {
   await connectDB();
 
   if (mode === 'monthly') {
     await runMonthlyReset();
   } else if (mode === 'both') {
-    await runWeeklyReset();
+    await runWeeklyReset(now);
     await runMonthlyReset();
   } else {
-    await runWeeklyReset();
+    await runWeeklyReset(now);
   }
 
   await mongoose.disconnect();

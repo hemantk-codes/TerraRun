@@ -3,18 +3,16 @@ import User from '../models/User.js';
 import WeeklyScore from '../models/WeeklyScore.js';
 import MonthlyScore from '../models/MonthlyScore.js';
 import { checkAndNotifyOvertakes } from '../utils/leaderboardOvertakeEngine.js'; // Phase 10
+import {
+  getJustEndedWeekRange,
+  getPreviousWeekStart,
+} from '../utils/weekBoundaries.js'; //Phase 11
 
 // --- Tunables — node-cron fields are: minute hour day-of-month month day-of-week ---
 const WEEKLY_RESET_CRON = '0 0 * * 1'; // every Monday, 00:00 server time
 const MONTHLY_RESET_CRON = '0 0 1 * *'; // the 1st of every month, 00:00 server time
 
 // weekStartDate/monthStartDate describe the week/month that JUST CLOSED.
-function getJustEndedWeekStart(now = new Date()) {
-  const d = new Date(now);
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - 7);
-  return d;
-}
 
 function getJustEndedMonthStart(now = new Date()) {
   const d = new Date(now);
@@ -28,9 +26,6 @@ function getJustEndedMonthStart(now = new Date()) {
 // what leaderboardOvertakeEngine.js diffs against. Plain subtraction is
 // exact for weekly (always 7 days); setMonth() correctly handles monthly's
 // variable day-count the same way getJustEndedMonthStart already does.
-function getPreviousWeekStart(justEndedWeekStart) {
-  return new Date(justEndedWeekStart.getTime() - 7 * 24 * 60 * 60 * 1000);
-}
 
 function getPreviousMonthStart(justEndedMonthStart) {
   const d = new Date(justEndedMonthStart);
@@ -44,7 +39,7 @@ function getPreviousMonthStart(justEndedMonthStart) {
  * design (see calonsEngine.js).
  */
 export async function runWeeklyReset(now = new Date()) {
-  const weekStartDate = getJustEndedWeekStart(now);
+  const { weekStart: weekStartDate } = getJustEndedWeekRange(now);
   const users = await User.find({ calonsWeekly: { $gt: 0 } }).select('_id calonsWeekly region');
 
   // PHASE 10 — must run BEFORE calonsWeekly is reset to 0 below (needs the

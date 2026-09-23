@@ -23,6 +23,10 @@ export default function Profile() {
   const [country, setCountry] = useState(initialRegion.country)
   const [state, setState] = useState(initialRegion.state)
   const [preferredColor, setPreferredColor] = useState(user?.preferredColor || '#3B82F6')
+  // PHASE 11 — stored inverted from how it reads in the UI: the checkbox
+  // means "send me weekly reports" (the friendlier framing), the field on
+  // the wire is `weeklyEmailOptOut` (matches User.js's schema field).
+  const [weeklyEmailOptOut, setWeeklyEmailOptOut] = useState(Boolean(user?.weeklyEmailOptOut))
 
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -44,6 +48,7 @@ export default function Profile() {
         heightCm: heightCm === '' ? undefined : Number(heightCm),
         region: region || undefined,
         preferredColor,
+        weeklyEmailOptOut,
       })
       setSuccess(true)
     } catch (err) {
@@ -188,6 +193,26 @@ export default function Profile() {
               placeholder="#3B82F6"
             />
           </div>
+        </div>
+
+        {/* PHASE 11 */}
+        <div className="flex items-start justify-between gap-4 rounded-md border border-ground-700 bg-ground-900/40 px-4 py-3">
+          <div>
+            <label className="field-label" htmlFor="weeklyEmailToggle">
+              Weekly email report
+            </label>
+            <p className="mt-1 text-xs text-ground-500">
+              A Monday-morning summary of your distance, Calons, and territory changes. Requires a verified email —
+              ask your admin/dev if you're not sure yours is set up yet.
+            </p>
+          </div>
+          <input
+            id="weeklyEmailToggle"
+            type="checkbox"
+            className="mt-1 h-5 w-5 flex-none accent-territory-500"
+            checked={!weeklyEmailOptOut}
+            onChange={(e) => setWeeklyEmailOptOut(!e.target.checked)}
+          />
         </div>
 
         <button type="submit" className="btn-primary" disabled={busy}>

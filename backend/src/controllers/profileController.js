@@ -17,7 +17,12 @@ export async function getMe(req, res, next) {
 // streak counters, territory-derived stats, etc.) is written by later
 // phases' own backend logic, never directly from a client request — keeping
 // an explicit allow-list avoids a mass-assignment bug down the line.
-const EDITABLE_FIELDS = ['name', 'bodyWeightKg', 'heightCm', 'region', 'preferredColor'];
+// PHASE 11 — added weeklyEmailOptOut so the Profile page's new toggle
+// (frontend/src/pages/Profile.jsx) can actually persist. `emailVerified` is
+// deliberately NOT in this list — that's meant to be set by a verification
+// flow (not built yet, see jobs/weeklyReportJobs.js's header), never by the
+// user directly flipping it.
+const EDITABLE_FIELDS = ['name', 'bodyWeightKg', 'heightCm', 'region', 'preferredColor', 'weeklyEmailOptOut'];
 
 export async function updateMe(req, res, next) {
   try {
@@ -31,6 +36,9 @@ export async function updateMe(req, res, next) {
     }
     if (updates.preferredColor !== undefined && !isValidHexColor(updates.preferredColor)) {
       throw new ApiError(400, 'preferredColor must be a hex color, e.g. #3B82F6.');
+    }
+    if (updates.weeklyEmailOptOut !== undefined) {
+      updates.weeklyEmailOptOut = Boolean(updates.weeklyEmailOptOut);
     }
 
     const user = await User.findByIdAndUpdate(req.userId, updates, {

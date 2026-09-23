@@ -4,6 +4,7 @@ import { createApp } from './app.js';
 import { connectDB } from './config/db.js';
 import { registerCalonsResetJobs } from './jobs/calonsResetJobs.js'; // Phase 5
 import { registerDecayJobs } from './jobs/decayJobs.js'; // Phase 8
+import { registerWeeklyReportJobs } from './jobs/weeklyReportJobs.js'; // Phase 11
 import { initSocket } from './sockets/index.js'; // Phase 9
 
 // Importing this confirms all schemas compile and register with Mongoose
@@ -19,6 +20,7 @@ async function start() {
   // register them only after connectDB() resolves.
   registerCalonsResetJobs();
   registerDecayJobs();
+  registerWeeklyReportJobs(); // Phase 11
 
   const app = createApp();
   // createApp() stays side-effect-free/testable (per its own comment) —
