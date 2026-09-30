@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { api, setAccessToken, setUnauthorizedHandler, refreshSession } from '../lib/api.js'
+import { signInWithGoogle } from '../lib/firebase.js'
 
 const AuthContext = createContext(null)
 
@@ -70,6 +71,19 @@ export function AuthProvider({ children }) {
     [handleSession]
   )
 
+  const googleAuth = useCallback(async () => {
+    const { idToken } = await signInWithGoogle()
+
+    const data = await api.post(
+      '/auth/google',
+      { idToken },
+      { skipAuth: true }
+    )
+
+    handleSession(data)
+    return data
+  }, [handleSession])
+
   const logout = useCallback(async () => {
     try {
       await api.post('/auth/logout', undefined, { skipAuth: true })
@@ -84,6 +98,12 @@ export function AuthProvider({ children }) {
     return data.user
   }, [])
 
+  const uploadAvatar = useCallback(async (formData) => {
+    const data = await api.post('/profile/avatar', formData)
+    setUser(data.user)
+    return data.user
+  }, [])
+
   const value = {
     user,
     accessToken, // Phase 9 — see note above; only the Socket.io connection should need this
@@ -92,8 +112,10 @@ export function AuthProvider({ children }) {
     signupEmail,
     loginEmail,
     phoneAuth,
+    googleAuth,
     logout,
     updateProfile,
+    uploadAvatar,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

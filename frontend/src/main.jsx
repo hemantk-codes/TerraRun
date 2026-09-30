@@ -8,6 +8,9 @@ import { AuthProvider } from './context/AuthContext.jsx'
 import { SocketProvider } from './context/SocketContext.jsx' // Phase 10
 import { NotificationsProvider } from './context/NotificationsContext.jsx' // Phase 10
 
+import './styles/terrarun-theme.css'
+import './index.css'
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>

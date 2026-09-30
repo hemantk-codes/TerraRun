@@ -13,11 +13,31 @@ function formatDuration(durationSec) {
   return h > 0 ? `${h}h ${m}m ${s}s` : `${m}m ${s}s`
 }
 
-function Stat({ label, value }) {
+function Stat({ label, value, icon }) {
+  const colorizedValue = String(value)
+    .split(/(\d+(?:\.\d+)?)/g)
+    .map((part, index) =>
+      /^\d+(?:\.\d+)?$/.test(part) ? (
+        <span key={index} className="text-[#FF9933]">
+          {part}
+        </span>
+      ) : (
+        <span key={index} className="text-black">
+          {part}
+        </span>
+      ),
+    )
+
   return (
-    <div>
-      <dt className="text-xs uppercase tracking-wide text-ground-300">{label}</dt>
-      <dd className="mt-1 font-display text-lg text-ground-100">{value}</dd>
+    <div className="stat-plate">
+      <dt className="flex items-center justify-center gap-1 text-[10px] font-bold text-black">
+        <span aria-hidden="true">{icon}</span>
+        {label}
+      </dt>
+
+      <dd className="mt-1 font-display text-lg font-extrabold">
+        {colorizedValue}
+      </dd>
     </div>
   )
 }
@@ -33,31 +53,28 @@ export default function RunSummary({ activity, onDismiss }) {
   const { distanceKm, durationSec, elevationGainM, calories, activityType, isLoop, isValidForTerritory } = activity
 
   return (
-    <div className="rounded-xl border border-ground-700 bg-ground-900 p-6">
-      <h2 className="font-display text-xl font-semibold text-ground-100">Run complete</h2>
+    <div className="panel">
+      <h2 className="title-plaque">Run complete</h2>
 
-      <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Stat label="Distance" value={`${distanceKm.toFixed(2)} km`} />
-        <Stat label="Time" value={formatDuration(durationSec)} />
-        <Stat label="Pace" value={formatPace(distanceKm, durationSec)} />
-        <Stat label="Elevation gain" value={`${Math.round(elevationGainM)} m`} />
-        <Stat label="Calories" value={`${Math.round(calories)} kcal`} />
-        <Stat label="Type" value={activityType} />
-        <Stat label="Shape" value={isLoop ? 'Loop' : 'Path'} />
+      <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat icon="🏃" label="Distance" value={`${distanceKm.toFixed(2)} km`} />
+        <Stat icon="⏱️" label="Time" value={formatDuration(durationSec)} />
+        <Stat icon="⚡" label="Pace" value={formatPace(distanceKm, durationSec)} />
+        <Stat icon="⛰️" label="Elevation gain" value={`${Math.round(elevationGainM)} m`} />
+        <Stat icon="🔥" label="Calories" value={`${Math.round(calories)} kcal`} />
+        <Stat icon="🏷️" label="Type" value={activityType} />
+        <Stat icon="🔁" label="Shape" value={isLoop ? 'Loop' : 'Path'} />
       </dl>
 
       {!isValidForTerritory && (
-        <p className="mt-4 rounded-md border border-invasion-500/40 bg-invasion-500/10 px-3 py-2 text-sm text-invasion-500">
+        <p className="form-error mt-4">
           {activityType === 'vehicle'
             ? 'This looks like it was recorded in a vehicle, so no territory was generated.'
             : "Runs under 1 km don't generate territory, but this one is still saved to your history."}
         </p>
       )}
 
-      <button
-        onClick={onDismiss}
-        className="mt-6 rounded-md bg-territory-500 px-4 py-2 text-sm font-semibold text-ground-950 transition-opacity hover:opacity-90"
-      >
+      <button onClick={onDismiss} className="btn-primary mt-6">
         Done
       </button>
     </div>

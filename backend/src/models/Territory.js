@@ -153,7 +153,6 @@ const TerritorySchema = new Schema(
 // 2dsphere enables $geoWithin / $near / $geoIntersects queries used by
 // Phase 4 (viewport queries) and Phase 6 (overlap detection).
 TerritorySchema.index({ geometry: '2dsphere' });
-TerritorySchema.index({ ownerId: 1 });
 // Phase 7 — the modal-check endpoint filters on "do I own any territory with
 // a pending split", so index the fields that query actually touches.
 TerritorySchema.index({ ownerId: 1, 'pendingSplit.createdAt': 1 });

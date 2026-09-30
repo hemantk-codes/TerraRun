@@ -49,7 +49,7 @@ export async function listConversations(req, res, next) {
     });
 
     const users = await User.find({ _id: { $in: otherUserIds } })
-      .select('name preferredColor')
+      .select('name preferredColor avatarUrl')
       .lean();
     const byId = new Map(users.map((u) => [u._id.toString(), u]));
 
@@ -62,7 +62,7 @@ export async function listConversations(req, res, next) {
         if (!otherUser) return null;
         return {
           conversationId: r._id,
-          otherUser: { id: otherId, name: otherUser.name, preferredColor: otherUser.preferredColor },
+          otherUser: { id: otherId, name: otherUser.name, preferredColor: otherUser.preferredColor, avatarUrl: otherUser.avatarUrl, },
           lastMessage: {
             senderId: r.lastMessage.senderId,
             type: r.lastMessage.type,

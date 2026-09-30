@@ -19,3 +19,22 @@ export function requireAuth(req, res, next) {
     next(new ApiError(401, 'Access token expired or invalid.'));
   }
 }
+
+export function optionalAuth(req, res, next) {
+  const header = req.headers.authorization || ''
+  const [scheme, token] = header.split(' ')
+
+  if (scheme !== 'Bearer' || !token) {
+    return next()
+  }
+
+  try {
+    const payload = verifyAccessToken(token)
+    req.userId = payload.sub
+  } catch {
+    // Invalid/expired token should not break the public map.
+    req.userId = null
+  }
+
+  next()
+}

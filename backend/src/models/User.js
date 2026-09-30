@@ -25,6 +25,12 @@ const UserSchema = new Schema(
       unique: true,
       sparse: true,
     },
+    firebaseUid: {
+      type: String,
+      trim: true,
+      unique: true,
+      sparse: true,
+    },
     // Not required at the schema level: phone+OTP users (Firebase Phone Auth)
     // never get a local password. Phase 1 enforces "email signup requires
     // this field" in the controller.
@@ -56,6 +62,11 @@ const UserSchema = new Schema(
       trim: true,
       default: '#3B82F6',
       match: [/^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/, 'preferredColor must be a hex color'],
+    },
+    avatarUrl: {
+      type: String,
+      trim: true,
+      default: null,
     },
 
     // --- Calons (points) — see Phase 5 ---

@@ -136,7 +136,7 @@ export async function searchUsers(req, res, next) {
       _id: { $ne: viewerId },
       name: pattern,
     })
-      .select('name preferredColor region')
+      .select('name preferredColor region avatarUrl')
       .limit(limit)
       .lean();
 
@@ -146,6 +146,7 @@ export async function searchUsers(req, res, next) {
         name: u.name,
         region: u.region,
         preferredColor: u.preferredColor,
+        avatarUrl: u.avatarUrl,
         status: await getStatus(viewerId, u._id),
       }))
     );
@@ -176,7 +177,7 @@ export async function listFriends(req, res, next) {
     const chattableIds = new Set([...followingIds, ...followerIds]);
 
     const users = await User.find({ _id: { $in: [...chattableIds] } })
-      .select('name preferredColor region')
+      .select('name preferredColor region avatarUrl')
       .lean();
     const byId = new Map(users.map((u) => [u._id.toString(), u]));
 
@@ -189,6 +190,7 @@ export async function listFriends(req, res, next) {
           name: u.name,
           region: u.region,
           preferredColor: u.preferredColor,
+          avatarUrl: u.avatarUrl,
           mutual: mutualIds.has(id),
         };
       })

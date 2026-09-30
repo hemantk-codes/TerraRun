@@ -1,98 +1,195 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 /*
-  TerraRun design tokens.
-  Palette nods to a night satellite map — deep charcoal ground, a claimed-
-  territory green, and a warm invasion/alert amber. Placeholder pages in this
-  phase are intentionally minimal; later phases (Map, Leaderboard, etc.) will
-  build real UI on top of these same tokens so the app stays visually
-  consistent as features land.
+  TerraRun — bright, flat, colorful "gamified fitness app" system.
+  Replaces the earlier dark skeuomorphic pass: white cards, lime-green /
+  hot-pink / cyan / amber accents, fully-rounded pill buttons and chips,
+  soft drop shadows instead of bevels. Modeled directly on the reference
+  mockup (nav bar, podium leaderboard, chat UI, profile card).
+
+  Token families keep their old NAMES (ground / territory / invasion) so
+  components that haven't been re-skinned yet still render — territory is
+  now the lime-green brand color, invasion is now amber/orange, and ground
+  is a light-mode neutral ramp (950 = near-black text ... 100 = near-white
+  background), same direction as before. gold / pink / cyan are new.
 */
+
 @theme {
-  --color-ground-950: #0b0f0e;
-  --color-ground-900: #101614;
-  --color-ground-800: #182220;
-  --color-ground-700: #24322f;
-  --color-ground-500: #58756c;
-  --color-ground-300: #9db3ac;
-  --color-ground-100: #e7efec;
+  /* ---- neutral ramp (light-mode) ---- */
+  --color-ground-950: #14161f;
+  --color-ground-900: #262a38;
+  --color-ground-800: #3d4257;
+  --color-ground-700: #5b6178;
+  --color-ground-500: #8b91a3;
+  --color-ground-300: #c7cbd6;
+  --color-ground-100: #f2f3f8;
 
-  --color-territory-500: #34d399;
-  --color-territory-400: #5eead4;
+  /* ---- territory (brand lime) ---- */
+  --color-territory-700: #7fb800;
+  --color-territory-500: #c6f135;
+  --color-territory-400: #dff878;
+  --color-territory-300: #eefcb0;
 
-  --color-invasion-500: #f59e0b;
+  /* ---- invasion (amber / alert) ---- */
+  --color-invasion-700: #c96a00;
+  --color-invasion-500: #ff9f1c;
+  --color-invasion-300: #ffd08a;
 
-  --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* ---- Calons / podium gold ---- */
+  --color-gold-700: #c98a0a;
+  --color-gold-500: #ffc93c;
+  --color-gold-300: #ffe49b;
+
+  /* ---- rival / social pink ---- */
+  --color-pink-700: #c71e63;
+  --color-pink-500: #ff3d81;
+  --color-pink-300: #ffa7c7;
+
+  /* ---- friend territory / calls cyan ---- */
+  --color-cyan-700: #0b9e9e;
+  --color-cyan-500: #17d6d6;
+  --color-cyan-300: #8ff0f0;
+
+  --font-display: "Poppins", "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
-  background-color: var(--color-ground-950);
-  color: var(--color-ground-100);
+  background-color: var(--color-ground-100);
+  background-image:
+    radial-gradient(600px circle at 6% 8%, rgba(198, 241, 53, 0.18), transparent 60%),
+    radial-gradient(500px circle at 96% 12%, rgba(255, 61, 129, 0.14), transparent 60%),
+    radial-gradient(550px circle at 92% 96%, rgba(23, 214, 214, 0.14), transparent 60%),
+    radial-gradient(500px circle at 4% 92%, rgba(255, 159, 28, 0.12), transparent 60%);
+  background-attachment: fixed;
+  color: var(--color-ground-950);
   font-family: var(--font-body);
 }
 
-/*
-  Small reusable primitives so form-heavy pages (Login/Signup, Profile, and
-  later phases) don't repeat the same long Tailwind class strings everywhere.
-*/
 @layer components {
   .field-label {
-    @apply block text-sm font-medium text-ground-300;
+    @apply mb-1 block text-xs font-bold text-ground-700;
   }
+
   .field-input {
-    @apply mt-1 w-full rounded-md border border-ground-700 bg-ground-900 px-3 py-2 text-sm text-ground-100
-      placeholder:text-ground-500 focus:border-territory-400 focus:outline-none focus:ring-1 focus:ring-territory-400;
+    @apply mt-1 w-full rounded-2xl border-2 border-ground-300 bg-white px-4 py-2.5 text-sm text-ground-950
+      placeholder:text-ground-500 focus:border-territory-500 focus:outline-none focus:ring-4 focus:ring-territory-300/50;
   }
+
+  /* Flat, fully-rounded, colorful pill buttons — press with a light scale, not a bevel. */
   .btn-primary {
-    @apply rounded-md bg-territory-500 px-4 py-2 text-sm font-semibold text-ground-950 transition-opacity
-      hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-territory-500 px-6 py-2.5 font-display
+      text-sm font-bold text-ground-950 shadow-[0_6px_16px_rgba(198,241,53,0.4)] transition-transform
+      hover:scale-[1.03] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100;
   }
+
   .btn-secondary {
-    @apply rounded-md border border-ground-700 bg-ground-900 px-4 py-2 text-sm font-medium text-ground-100
-      transition-colors hover:bg-ground-800 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-full border-2 border-ground-950 bg-white px-6 py-2.5
+      font-display text-sm font-bold text-ground-950 transition-transform hover:scale-[1.03] active:scale-95
+      disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-invasion-500 px-6 py-2.5 font-display
+      text-sm font-bold text-white shadow-[0_6px_16px_rgba(255,159,28,0.35)] transition-transform hover:scale-[1.03]
+      active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100;
+  }
+
+  /* Plain white card — forms, panels, chat windows. */
+  .form-card,
+  .panel {
+    @apply relative w-full rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(20,22,31,0.08)] sm:p-8;
   }
   .form-card {
-    @apply w-full max-w-md rounded-xl border border-ground-800 bg-ground-900/60 p-6 sm:p-8;
+    @apply max-w-md;
   }
+  .panel {
+    @apply p-5 sm:p-6;
+  }
+
   .form-error {
-    @apply rounded-md border border-invasion-500/40 bg-invasion-500/10 px-3 py-2 text-sm text-invasion-500;
+    @apply rounded-2xl border-2 border-invasion-300 bg-invasion-300/25 px-4 py-2.5 text-sm font-semibold text-invasion-700;
+  }
+
+  /* Small inset stat readout — leaderboard rows, run-summary stats. */
+  .stat-plate {
+    @apply rounded-2xl bg-ground-100 px-3 py-2 text-center;
+  }
+
+  /* Round coin/gem badge. */
+  .badge-gem {
+    @apply flex items-center justify-center rounded-full bg-gold-500 font-display font-extrabold text-ground-950
+      shadow-[0_3px_8px_rgba(255,201,60,0.5)];
+  }
+
+  /* Page heading — plain bold text (paired with a .title-icon in a colored
+     circle beside it), not a decorative label. */
+  .page-title {
+    @apply font-display text-2xl font-extrabold leading-tight text-ground-950 sm:text-3xl;
+  }
+  .title-icon {
+    @apply flex h-11 w-11 flex-none items-center justify-center rounded-2xl text-xl;
+  }
+
+  /* Kept for older pages built in the previous pass (PlaceholderPage,
+     LoginSignup, RunSummary) — restyled flat/light so they still fit. */
+  .title-plaque {
+    @apply inline-block font-display text-2xl font-extrabold text-ground-950 sm:text-3xl;
+  }
+  .ribbon-title {
+    @apply inline-flex items-center gap-1 rounded-full bg-territory-300 px-4 py-1 font-display text-xs font-extrabold
+      uppercase tracking-widest text-ground-950;
+  }
+
+  /* Small status pill (follow status, tags) — pair with a bg-*/text-* pair. */
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold;
+  }
+
+  /* iOS-style toggle switch: <input type="checkbox" class="toggle" />. */
+  .toggle {
+    @apply relative h-7 w-12 flex-none cursor-pointer appearance-none rounded-full bg-ground-300 outline-none
+      transition-colors checked:bg-territory-500;
+  }
+  .toggle::before {
+    content: '';
+    @apply absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-150;
+  }
+  .toggle:checked::before {
+    transform: translateX(1.25rem);
   }
 }
 
 /*
-  PHASE 4 — Leaflet popup theming.
-  Leaflet's default popup is a plain white box, which clashes hard with the
-  app's dark "night satellite" palette. These overrides retarget Leaflet's
-  own classes (not @layer, since Leaflet renders these into the DOM outside
-  React's render tree — Tailwind's utility classes still apply globally, but
-  Leaflet's structural wrapper classes need direct overrides) to reuse the
-  same ground-* tokens as the rest of the app.
+  Leaflet popup theming — retargets Leaflet's own DOM classes (rendered
+  outside React's tree) to the new light card look.
 */
 .leaflet-popup-content-wrapper {
-  background-color: var(--color-ground-900);
-  color: var(--color-ground-100);
-  border: 1px solid var(--color-ground-700);
-  border-radius: 0.5rem;
-  box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.4);
+  background: #ffffff;
+  color: var(--color-ground-950);
+  border: 2px solid var(--color-ground-100);
+  border-radius: 1rem;
+  box-shadow: 0 10px 25px -5px rgb(20 22 31 / 0.15);
 }
 .leaflet-popup-tip {
-  background-color: var(--color-ground-900);
+  background-color: #ffffff;
 }
 .leaflet-popup-content {
   margin: 0.75rem 1rem;
   min-width: 160px;
 }
 .leaflet-popup-close-button {
-  color: var(--color-ground-300) !important;
+  color: var(--color-ground-500) !important;
 }
 .terrarun-popup-owner {
-  font-weight: 600;
-  color: var(--color-ground-100);
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--color-ground-950);
   margin: 0 0 0.15rem;
 }
 .terrarun-popup-meta {
-  color: var(--color-ground-300);
+  color: var(--color-ground-700);
   font-size: 0.8125rem;
   margin: 0 0 0.15rem;
 }

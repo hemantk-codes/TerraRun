@@ -4,13 +4,13 @@ import {
   getMyPendingSplits, // Phase 7
   resolveSplit, // Phase 7
 } from '../controllers/territoryController.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, optionalAuth } from '../middleware/auth.js';
 
 const router = Router();
 
 // GET /api/territories/nearby?lat=<>&lng=<>&radius=<meters>
 // Public — see the DESIGN NOTE in territoryController.js.
-router.get('/nearby', getNearbyTerritories);
+router.get('/nearby', optionalAuth, getNearbyTerritories);
 
 // GET /api/territories/pending-splits
 // Phase 7 — auth required. Returns the current user's unresolved

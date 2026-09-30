@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import NavBar from './components/NavBar.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import LoginSignup from './pages/LoginSignup.jsx'
+import LandingPage from './pages/LandingPage.jsx'
 import Map from './pages/Map.jsx'
 import Profile from './pages/Profile.jsx'
 import Leaderboard from './pages/Leaderboard.jsx'
@@ -29,7 +30,8 @@ export default function App() {
       <NavBar />
       <main>
         <Routes>
-          <Route path="/" element={<Map />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/map" element={<Map />} />
           <Route path="/login" element={<LoginSignup />} />
           <Route
             path="/run"

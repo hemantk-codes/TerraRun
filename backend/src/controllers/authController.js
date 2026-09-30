@@ -161,6 +161,98 @@ export async function phoneAuth(req, res, next) {
   }
 }
 
+export async function googleAuth(req, res, next) {
+  try {
+    const { idToken } = req.body
+
+    if (!idToken) {
+      throw new ApiError(400, 'idToken is required.')
+    }
+
+    let decoded
+
+    try {
+      decoded = await verifyFirebaseIdToken(idToken);
+    } catch (err) {
+      console.error('[google verify]', err.code, err.message);
+      throw new ApiError(401, 'Invalid or expired Google verification token.');
+    }
+
+    if (!decoded.uid) {
+      throw new ApiError(400, 'Google account ID is missing.')
+    }
+
+    const email = decoded.email?.trim().toLowerCase()
+
+    if (!email) {
+      throw new ApiError(
+        400,
+        'Your Google account did not provide an email address.'
+      )
+    }
+
+    const name =
+      decoded.name?.trim() ||
+      email.split('@')[0] ||
+      'TerraRun Runner'
+
+    let user = await User.findOne({
+      $or: [
+        { firebaseUid: decoded.uid },
+        { email },
+      ],
+    }).select('+refreshTokenVersion')
+
+    let isNewUser = false
+
+    if (!user) {
+      isNewUser = true
+
+      user = await User.create({
+        firebaseUid: decoded.uid,
+        email,
+        name,
+        emailVerified: decoded.email_verified === true,
+      })
+    } else {
+      const updates = {}
+
+      if (!user.firebaseUid) {
+        updates.firebaseUid = decoded.uid
+      }
+
+      if (!user.emailVerified && decoded.email_verified === true) {
+        updates.emailVerified = true
+      }
+
+      if (!user.name && name) {
+        updates.name = name
+      }
+
+      if (Object.keys(updates).length > 0) {
+        user = await User.findByIdAndUpdate(
+          user._id,
+          updates,
+          {
+            new: true,
+            runValidators: true,
+          }
+        ).select('+refreshTokenVersion')
+      }
+    }
+
+    const accessToken = issueSession(user, res)
+
+    res.status(isNewUser ? 201 : 200).json({
+      user: sanitizeUser(user),
+      accessToken,
+      isNewUser,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
 export async function refresh(req, res, next) {
   try {
     const token = req.cookies?.[REFRESH_COOKIE_NAME];

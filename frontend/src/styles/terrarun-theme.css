@@ -1,0 +1,323 @@
+/* TerraRun visual system — loaded automatically by NavBar.jsx */
+:root {
+  --tr-ink: #18222e;
+  --tr-paper: #f8f3ea;
+  --tr-white: #fffdfa;
+  --tr-lime: #c9ff2f;
+  --tr-pink: #ff58ae;
+  --tr-cyan: #54d9ff;
+  --tr-orange: #ff9c4a;
+  --tr-purple: #9277ff;
+  --tr-green: #55d77b;
+  --tr-line: rgba(24,34,46,.12);
+}
+
+html,
+body {
+  background: var(--tr-paper) !important;
+  color: var(--tr-ink) !important;
+}
+
+body {
+  min-width: 320px;
+  background:
+    radial-gradient(circle at 8% 6%, rgba(201,255,47,.12), transparent 23%),
+    radial-gradient(circle at 92% 8%, rgba(84,217,255,.10), transparent 22%),
+    linear-gradient(180deg, #fffdf9 0%, #f6f0e6 100%) !important;
+}
+
+main {
+  min-height: calc(100vh - 88px);
+}
+
+h1,
+h2,
+h3,
+h4,
+.font-display {
+  color: var(--tr-ink) !important;
+  letter-spacing: -.035em;
+}
+
+/* Route-specific canvas */
+html[data-tr-route="/map"] body {
+  background: #121c26 !important;
+}
+
+html[data-tr-route="/map"] main {
+  background:
+    radial-gradient(circle at 14% 8%, rgba(201,255,47,.09), transparent 26%),
+    radial-gradient(circle at 88% 12%, rgba(255,88,174,.08), transparent 26%),
+    #121c26 !important;
+}
+
+html[data-tr-route="/run"] main {
+  background:
+    radial-gradient(circle at 10% 12%, rgba(201,255,47,.12), transparent 24%),
+    linear-gradient(180deg, #eef8ff 0%, #f6f0e6 100%) !important;
+}
+
+html[data-tr-route="/leaderboard"] main,
+html[data-tr-route="/friends"] main,
+html[data-tr-route="/profile"] main,
+html[data-tr-route="/login"] main {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(201,255,47,.11), transparent 21%),
+    radial-gradient(circle at 88% 14%, rgba(255,88,174,.08), transparent 22%),
+    linear-gradient(180deg, #fffdf8 0%, #f2ebdf 100%) !important;
+}
+
+/* Common content shell */
+main > div:not(.landing-page) {
+  color: var(--tr-ink);
+}
+
+.form-card {
+  border: 1px solid var(--tr-line) !important;
+  border-radius: 24px !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.97), rgba(248,245,239,.95)) !important;
+  box-shadow:
+    0 16px 34px rgba(24,34,46,.08),
+    inset 0 1px 0 rgba(255,255,255,.92) !important;
+}
+
+.field-label {
+  color: #344454 !important;
+  font-weight: 850 !important;
+}
+
+.field-input,
+input.field-input,
+select.field-input,
+textarea.field-input {
+  min-height: 44px;
+  border: 1px solid rgba(24,34,46,.13) !important;
+  border-radius: 13px !important;
+  background: rgba(255,255,255,.86) !important;
+  color: var(--tr-ink) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.94),
+    0 4px 12px rgba(24,34,46,.04) !important;
+}
+
+.field-input:focus,
+input.field-input:focus,
+select.field-input:focus,
+textarea.field-input:focus {
+  border-color: rgba(84,217,255,.72) !important;
+  outline: 4px solid rgba(84,217,255,.18) !important;
+}
+
+.btn-primary {
+  border: 1px solid rgba(24,34,46,.13) !important;
+  border-radius: 13px !important;
+  background: linear-gradient(180deg, #d8ff57, var(--tr-lime)) !important;
+  color: var(--tr-ink) !important;
+  box-shadow:
+    0 7px 15px rgba(24,34,46,.11),
+    inset 0 1px 0 rgba(255,255,255,.58) !important;
+  font-weight: 900 !important;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 10px 20px rgba(24,34,46,.14),
+    inset 0 1px 0 rgba(255,255,255,.58) !important;
+}
+
+.form-error {
+  border: 1px solid rgba(255,88,174,.20) !important;
+  border-radius: 13px !important;
+  background: linear-gradient(180deg, #fff0f8, #ffeaf4) !important;
+  color: #9b215f !important;
+  box-shadow: none !important;
+}
+
+/* Generic light controls for existing Tailwind pages */
+main button:not(.leaflet-control-zoom-in):not(.leaflet-control-zoom-out),
+main a[class*="border-ground-"] {
+  border-radius: 11px;
+}
+
+main input:not(.leaflet-container input),
+main select:not(.leaflet-container select),
+main textarea:not(.leaflet-container textarea) {
+  color: var(--tr-ink);
+}
+
+/* Leaderboard — soft product card with colorful first rows */
+html[data-tr-route="/leaderboard"] table {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--tr-line) !important;
+  border-radius: 22px !important;
+  background: rgba(255,255,255,.95) !important;
+  box-shadow:
+    0 16px 34px rgba(24,34,46,.08),
+    inset 0 1px 0 rgba(255,255,255,.92) !important;
+}
+
+html[data-tr-route="/leaderboard"] table thead {
+  background: linear-gradient(180deg, #f8f5ef, #efe9dd) !important;
+}
+
+html[data-tr-route="/leaderboard"] table thead th {
+  color: #6e7b87 !important;
+  font-size: 10px !important;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+html[data-tr-route="/leaderboard"] table tbody tr {
+  background: rgba(255,255,255,.72) !important;
+  color: var(--tr-ink) !important;
+}
+
+html[data-tr-route="/leaderboard"] table tbody tr:first-child {
+  background: linear-gradient(90deg, rgba(201,255,47,.28), rgba(255,255,255,.75)) !important;
+}
+
+html[data-tr-route="/leaderboard"] table tbody tr:nth-child(2) {
+  background: linear-gradient(90deg, rgba(84,217,255,.17), rgba(255,255,255,.75)) !important;
+}
+
+html[data-tr-route="/leaderboard"] table tbody tr:nth-child(3) {
+  background: linear-gradient(90deg, rgba(255,156,74,.16), rgba(255,255,255,.75)) !important;
+}
+
+/* Tabs / segmented controls */
+html[data-tr-route="/leaderboard"] button,
+html[data-tr-route="/friends"] button {
+  box-shadow: 0 4px 11px rgba(24,34,46,.05);
+}
+
+html[data-tr-route="/leaderboard"] button[aria-pressed="true"],
+html[data-tr-route="/leaderboard"] [aria-selected="true"] {
+  background: linear-gradient(180deg, #d8ff57, var(--tr-lime)) !important;
+  color: var(--tr-ink) !important;
+  border-color: rgba(24,34,46,.12) !important;
+}
+
+/* Friends/chat: two-pane app card */
+html[data-tr-route="/friends"] main input {
+  border: 1px solid rgba(24,34,46,.12) !important;
+  border-radius: 13px !important;
+  background: rgba(255,255,255,.80) !important;
+}
+
+html[data-tr-route="/friends"] main > div {
+  width: min(980px, calc(100% - 28px));
+}
+
+html[data-tr-route="/friends"] main button {
+  color: var(--tr-ink);
+}
+
+html[data-tr-route="/friends"] .bg-territory-500 {
+  background: linear-gradient(180deg, #d9ff5b, var(--tr-lime)) !important;
+}
+
+html[data-tr-route="/friends"] .bg-ground-900,
+html[data-tr-route="/friends"] .bg-ground-950,
+html[data-tr-route="/friends"] .bg-ground-900\/40 {
+  background: rgba(255,255,255,.84) !important;
+}
+
+/* Profile — emphasize summary and settings blocks */
+html[data-tr-route="/profile"] main > div {
+  width: min(1040px, calc(100% - 28px));
+}
+
+html[data-tr-route="/profile"] .form-card {
+  max-width: 760px;
+}
+
+html[data-tr-route="/profile"] input[type="color"] {
+  border: 1px solid rgba(24,34,46,.13) !important;
+  border-radius: 12px !important;
+  background: white !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
+}
+
+html[data-tr-route="/profile"] input[type="checkbox"] {
+  accent-color: var(--tr-lime);
+}
+
+/* Run page — make the Leaflet panel feel like a game screen */
+html[data-tr-route="/run"] .leaflet-container {
+  border: 1px solid rgba(24,34,46,.14) !important;
+  border-radius: 24px !important;
+  overflow: hidden;
+  box-shadow:
+    0 18px 36px rgba(24,34,46,.10),
+    inset 0 1px 0 rgba(255,255,255,.85);
+}
+
+html[data-tr-route="/run"] .leaflet-control-zoom a,
+html[data-tr-route="/map"] .leaflet-control-zoom a {
+  border: 1px solid rgba(24,34,46,.12) !important;
+  border-radius: 12px !important;
+  background: rgba(255,255,255,.92) !important;
+  color: var(--tr-ink) !important;
+  box-shadow: 0 6px 14px rgba(24,34,46,.08);
+}
+
+html[data-tr-route="/run"] .leaflet-popup-content-wrapper,
+html[data-tr-route="/map"] .leaflet-popup-content-wrapper,
+html[data-tr-route="/run"] .leaflet-popup-tip,
+html[data-tr-route="/map"] .leaflet-popup-tip {
+  border: 1px solid rgba(24,34,46,.12);
+  border-radius: 14px;
+  background: rgba(255,255,255,.94);
+  color: var(--tr-ink);
+  box-shadow: 0 12px 26px rgba(24,34,46,.10);
+}
+
+/* Map — keep the world dark and vivid */
+html[data-tr-route="/map"] .leaflet-container {
+  background: #17232f !important;
+  border-radius: 26px;
+  box-shadow:
+    0 18px 44px rgba(0,0,0,.24),
+    inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+html[data-tr-route="/map"] main button,
+html[data-tr-route="/map"] main a {
+  --map-light: rgba(255,255,255,.90);
+}
+
+html[data-tr-route="/map"] .leaflet-popup-content-wrapper,
+html[data-tr-route="/map"] .leaflet-popup-tip {
+  background: rgba(255,253,248,.96);
+}
+
+/* Login — make auth screen feel like the product */
+html[data-tr-route="/login"] main > div {
+  width: min(920px, calc(100% - 28px));
+}
+
+html[data-tr-route="/login"] .form-card {
+  width: min(520px, 100%);
+  box-shadow:
+    0 20px 46px rgba(24,34,46,.11),
+    inset 0 1px 0 rgba(255,255,255,.92) !important;
+}
+
+/* Notification dropdown from Phase 10 */
+html[data-tr-route] [class*="notification"] {
+  scrollbar-color: rgba(24,34,46,.24) transparent;
+}
+
+::selection {
+  background: rgba(201,255,47,.78);
+  color: var(--tr-ink);
+}
+
+@media (max-width: 720px) {
+  .form-card {
+    border-radius: 20px !important;
+  }
+}

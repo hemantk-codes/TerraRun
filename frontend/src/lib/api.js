@@ -18,14 +18,19 @@ export function setUnauthorizedHandler(handler) {
 }
 
 async function request(path, { method = 'GET', body, skipAuth = false, isRetry = false } = {}) {
-  const headers = { 'Content-Type': 'application/json' }
+  const isFormData = body instanceof FormData
+  const headers = isFormData ? {} : { 'Content-Type': 'application/json' }
   if (accessToken && !skipAuth) headers.Authorization = `Bearer ${accessToken}`
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers,
     credentials: 'include', // sends/receives the httpOnly refresh cookie
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: body !== undefined
+      ? isFormData
+        ? body
+        : JSON.stringify(body)
+      : undefined,
   })
 
   let data = null

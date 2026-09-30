@@ -1,17 +1,34 @@
 import { useEffect, useRef, useState } from 'react'
+import { Phone, Send, Smile, Video } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { getThread } from '../../lib/socialApi.js'
 
-/**
- * One open conversation: history (loaded once via REST — see
- * messageController.js's getThread) plus live messages delivered over the
- * shared socket passed down from ChatTab, plus the send box.
- *
- * `mutual` (computed in ChatTab from the /api/friends list) gates the call
- * button per the Phase 9 spec — voice/video itself isn't implemented until
- * Phase 12, this just wires up the disabled state + tooltip now so the UI
- * doesn't need revisiting when that phase lands.
- */
+function RunnerAvatar({ user }) {
+  const initials =
+    user?.name?.trim()?.charAt(0)?.toUpperCase() || '?'
+
+  if (user?.avatarUrl) {
+    return (
+      <img
+        src={user.avatarUrl}
+        alt={`${user.name || 'Runner'} avatar`}
+        className="h-10 w-10 flex-none rounded-full border-2 border-white object-cover shadow-[0_2px_6px_rgba(40,45,55,0.14)]"
+      />
+    )
+  }
+
+  return (
+    <span
+      className="flex h-10 w-10 flex-none items-center justify-center rounded-full border-2 border-white text-[12px] font-black text-white shadow-[0_2px_6px_rgba(40,45,55,0.14)]"
+      style={{
+        backgroundColor: user?.preferredColor || '#55d9d0',
+      }}
+    >
+      {initials}
+    </span>
+  )
+}
+
 export default function ChatThread({ socket, otherUser, mutual }) {
   const { user } = useAuth()
   const myId = (user?.id || user?._id)?.toString()
@@ -26,15 +43,18 @@ export default function ChatThread({ socket, otherUser, mutual }) {
 
   function addMessage(msg) {
     const id = msg._id?.toString?.() || msg._id
-    if (seenIds.current.has(id)) return
+
+    if (seenIds.current.has(id)) {
+      return
+    }
+
     seenIds.current.add(id)
     setMessages((prev) => [...prev, msg])
   }
 
-  // Load history + join the socket room whenever the selected conversation
-  // changes.
   useEffect(() => {
     let cancelled = false
+
     setLoading(true)
     setMessages([])
     setSendError(null)
@@ -42,88 +62,193 @@ export default function ChatThread({ socket, otherUser, mutual }) {
 
     getThread(otherUser.id)
       .then(({ messages: history }) => {
-        if (cancelled) return
-        history.forEach((m) => seenIds.current.add(m._id?.toString?.() || m._id))
+        if (cancelled) {
+          return
+        }
+
+        history.forEach((m) => {
+          seenIds.current.add(
+            m._id?.toString?.() || m._id,
+          )
+        })
+
         setMessages(history)
         setError(null)
       })
-      .catch((err) => !cancelled && setError(err.message))
-      .finally(() => !cancelled && setLoading(false))
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err.message)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      })
 
-    socket.emit('conversation:join', { otherUserId: otherUser.id })
+    socket.emit('conversation:join', {
+      otherUserId: otherUser.id,
+    })
 
     function handleNew(msg) {
-      const senderId = msg.senderId?.toString?.() || msg.senderId
-      const belongsHere = senderId === otherUser.id || senderId === myId
-      if (belongsHere) addMessage(msg)
+      const senderId =
+        msg.senderId?.toString?.() || msg.senderId
+
+      const belongsHere =
+        senderId === otherUser.id || senderId === myId
+
+      if (belongsHere) {
+        addMessage(msg)
+      }
     }
+
     socket.on('message:new', handleNew)
 
     return () => {
       cancelled = true
-      socket.emit('conversation:leave', { otherUserId: otherUser.id })
+
+      socket.emit('conversation:leave', {
+        otherUserId: otherUser.id,
+      })
+
       socket.off('message:new', handleNew)
     }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otherUser.id, socket])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    bottomRef.current?.scrollIntoView({
+      behavior: 'smooth',
+    })
   }, [messages.length])
 
   function handleSend(e) {
     e.preventDefault()
-    const content = draft.trim()
-    if (!content) return
 
-    socket.emit('message:send', { otherUserId: otherUser.id, content }, (ack) => {
-      setSendError(ack?.ok ? null : ack?.error || 'Failed to send message.')
-    })
+    const content = draft.trim()
+
+    if (!content) {
+      return
+    }
+
+    socket.emit(
+      'message:send',
+      {
+        otherUserId: otherUser.id,
+        content,
+      },
+      (ack) => {
+        setSendError(
+          ack?.ok
+            ? null
+            : ack?.error || 'Failed to send message.',
+        )
+      },
+    )
+
     setDraft('')
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-ground-800 px-4 py-3">
+    <div className="flex h-full flex-col bg-[#FCF6E9]">
+      <header className="flex items-center justify-between border-b border-[#ece7df] px-4 py-3">
         <div className="flex items-center gap-3">
-          <span
-            className="h-8 w-8 flex-none rounded-full border border-ground-700"
-            style={{ backgroundColor: otherUser.preferredColor || '#3B82F6' }}
-          />
-          <p className="text-sm font-medium text-ground-100">{otherUser.name}</p>
+          <RunnerAvatar user={otherUser} />
+
+          <div className="min-w-0">
+            <p className="truncate font-display text-[14px] font-bold text-[#161a20]">
+              {otherUser.name}
+            </p>
+
+            <p className="flex items-center gap-1 text-[11px] font-semibold text-[#8bb928]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#b8ee18]" />
+              Online
+            </p>
+          </div>
         </div>
 
-        <div className="group relative">
+        <div className="group relative flex items-center gap-2">
           <button
             type="button"
             disabled={!mutual}
-            title={mutual ? 'Start a call' : 'Requires a mutual friendship'}
-            className="rounded-md border border-ground-700 px-3 py-1.5 text-xs font-medium text-ground-300 transition-colors enabled:hover:bg-ground-900 disabled:cursor-not-allowed disabled:opacity-40"
+            title={
+              mutual
+                ? 'Voice call'
+                : 'Requires a mutual friendship'
+            }
+            className="flex h-10 w-10 items-center justify-center rounded-[13px] bg-[#eafaC4] text-[#86aa20] transition-transform enabled:hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            📞 Call
+            <Phone
+              className="h-[18px] w-[18px]"
+              fill="currentColor"
+            />
           </button>
+
+          <button
+            type="button"
+            disabled={!mutual}
+            title={
+              mutual
+                ? 'Video call'
+                : 'Requires a mutual friendship'
+            }
+            className="flex h-10 w-10 items-center justify-center rounded-[13px] bg-[#ffdce9] text-[#e54c87] transition-transform enabled:hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Video
+              className="h-[18px] w-[18px]"
+              fill="currentColor"
+            />
+          </button>
+
           {!mutual && (
-            <span className="pointer-events-none absolute right-0 top-full z-10 mt-1 hidden w-48 rounded-md border border-ground-700 bg-ground-900 p-2 text-xs text-ground-300 shadow-lg group-hover:block">
-              Voice/video calls need a mutual follow — you both need to follow each other.
+            <span className="pointer-events-none absolute right-0 top-full z-10 mt-1 hidden w-48 rounded-xl bg-white p-2 text-[11px] leading-snug text-[#666d79] shadow-[0_10px_24px_rgba(20,22,31,0.15)] group-hover:block">
+              Voice/video calls need a mutual follow — you
+              both need to follow each other.
             </span>
           )}
         </div>
       </header>
 
-      <div className="flex-1 space-y-2 overflow-y-auto px-4 py-3">
-        {loading && <p className="text-sm text-ground-500">Loading messages…</p>}
-        {error && <p className="text-sm text-invasion-500">{error}</p>}
-        {!loading && messages.length === 0 && !error && (
-          <p className="text-sm text-ground-500">No messages yet — say hi!</p>
+      <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
+        {loading && (
+          <p className="text-[12px] font-medium text-[#8b92a0]">
+            Loading messages…
+          </p>
         )}
+
+        {error && (
+          <p className="text-[12px] font-semibold text-[#b43f68]">
+            {error}
+          </p>
+        )}
+
+        {!loading &&
+          messages.length === 0 &&
+          !error && (
+            <p className="text-[12px] font-medium text-[#8b92a0]">
+              No messages yet — say hi!
+            </p>
+          )}
+
         {messages.map((m) => {
-          const senderId = m.senderId?.toString?.() || m.senderId
+          const senderId =
+            m.senderId?.toString?.() || m.senderId
+
           const mine = senderId === myId
+
           return (
-            <div key={m._id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+            <div
+              key={m._id}
+              className={`flex ${
+                mine ? 'justify-end' : 'justify-start'
+              }`}
+            >
               <div
-                className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
-                  mine ? 'bg-territory-500 text-ground-950' : 'bg-ground-800 text-ground-100'
+                className={`max-w-[75%] rounded-[17px] px-3.5 py-2 text-[13px] font-medium leading-snug shadow-[0_2px_5px_rgba(50,55,65,0.04)] ${
+                  mine
+                    ? 'bg-[#bdf21f] text-[#18200f]'
+                    : 'bg-[#eef0f5] text-[#252a31]'
                 }`}
               >
                 {m.content}
@@ -131,25 +256,41 @@ export default function ChatThread({ socket, otherUser, mutual }) {
             </div>
           )
         })}
+
         <div ref={bottomRef} />
       </div>
 
-      <form onSubmit={handleSend} className="flex items-center gap-2 border-t border-ground-800 p-3">
+      <form
+        onSubmit={handleSend}
+        className="flex items-center gap-2 border-t border-[#ece7df] p-3"
+      >
+        <Smile className="ml-0.5 h-[20px] w-[20px] flex-none text-[#ff9b45]" />
+
         <input
           type="text"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={`Message ${otherUser.name}…`}
-          className="flex-1 rounded-md border border-ground-700 bg-ground-900 px-3 py-2 text-sm text-ground-100 placeholder:text-ground-500 focus:border-territory-500 focus:outline-none"
+          className="h-10 min-w-0 flex-1 rounded-full border border-[#e5e6eb] bg-[#f0f1f5] px-4 text-[13px] text-[#252a31] placeholder:text-[#9aa0ab] focus:border-[#b6dc47] focus:bg-white focus:outline-none"
         />
+
         <button
           type="submit"
-          className="rounded-md bg-territory-500 px-4 py-2 text-sm font-semibold text-ground-950 transition-opacity hover:opacity-90"
+          className="flex h-10 w-10 flex-none items-center justify-center rounded-[12px] bg-[#bdf21f] text-[#18200f] shadow-[0_3px_8px_rgba(121,160,16,0.18)] transition-transform hover:scale-105"
+          aria-label="Send message"
         >
-          Send
+          <Send
+            className="h-[18px] w-[18px]"
+            fill="currentColor"
+          />
         </button>
       </form>
-      {sendError && <p className="px-4 pb-2 text-xs text-invasion-500">{sendError}</p>}
+
+      {sendError && (
+        <p className="px-4 pb-2 text-[11px] font-semibold text-[#b43f68]">
+          {sendError}
+        </p>
+      )}
     </div>
   )
 }

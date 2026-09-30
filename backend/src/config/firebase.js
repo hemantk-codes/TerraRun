@@ -1,4 +1,6 @@
-import admin from 'firebase-admin';
+import { initializeApp } from 'firebase-admin/app'
+import { cert } from 'firebase-admin/app'
+import { getAuth } from 'firebase-admin/auth'
 
 // Lazy singleton — only initialized the first time a phone-auth request
 // actually comes in, so the rest of the app (email/password auth, etc.)
@@ -22,8 +24,8 @@ function getFirebaseApp() {
     );
   }
 
-  firebaseApp = admin.initializeApp({
-    credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
+  firebaseApp = initializeApp({
+    credential: cert({ projectId, clientEmail, privateKey }),
   });
   return firebaseApp;
 }
@@ -32,5 +34,5 @@ function getFirebaseApp() {
 // OTP verification) and returns its decoded claims, including phone_number.
 export async function verifyFirebaseIdToken(idToken) {
   const app = getFirebaseApp();
-  return admin.auth(app).verifyIdToken(idToken);
+  return getAuth(app).verifyIdToken(idToken);
 }

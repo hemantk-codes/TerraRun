@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
+import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -30,4 +30,18 @@ export function getFirebaseAuth() {
     authInstance = getAuth(app)
   }
   return authInstance
+}
+
+export async function signInWithGoogle() {
+  const auth = getFirebaseAuth()
+  const provider = new GoogleAuthProvider()
+
+  const result = await signInWithPopup(auth, provider)
+
+  const idToken = await result.user.getIdToken()
+
+  return {
+    user: result.user,
+    idToken,
+  }
 }
